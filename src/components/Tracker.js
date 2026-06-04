@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -150,6 +150,23 @@ function Tracker({ userEmail, onLogout }) {
     return new Intl.NumberFormat('en-US').format(Math.round(num));
   };
 
+  const formatCurrencyShort = (value) => {
+    const sign = value < 0 ? '-' : '';
+    const abs = Math.abs(value);
+
+    if (abs >= 1000000) {
+      return `${sign}$${(abs / 1000000).toFixed(1)}M`;
+    }
+
+    if (abs >= 1000) {
+      return `${sign}$${(abs / 1000).toFixed(0)}K`;
+    }
+
+    return `${sign}$${abs.toFixed(0)}`;
+  };
+
+  const formatMillions = (value) => `$${(value / 1000000).toFixed(1)}M`;
+
   const getCategoryColor = (category) => {
     const colors = {
       HULL: '#1D9E75',
@@ -199,19 +216,13 @@ function Tracker({ userEmail, onLogout }) {
     { name: 'Savings PV', value: savingsPV },
   ];
 
-  const cashFlowData = [
-    { year: 2025, cashFlow: -totalCapex },
-    { year: 2026, cashFlow: -totalCapex + annualValue },
-    { year: 2027, cashFlow: -totalCapex + annualValue * 2 },
-    { year: 2028, cashFlow: -totalCapex + annualValue * 3 },
-    { year: 2029, cashFlow: -totalCapex + annualValue * 4 },
-    { year: 2030, cashFlow: -totalCapex + annualValue * 5 },
-    { year: 2031, cashFlow: -totalCapex + annualValue * 6 },
-    { year: 2032, cashFlow: -totalCapex + annualValue * 7 },
-    { year: 2033, cashFlow: -totalCapex + annualValue * 8 },
-    { year: 2034, cashFlow: -totalCapex + annualValue * 9 },
-    { year: 2035, cashFlow: -totalCapex + annualValue * 10 },
-  ];
+  const cashFlowData = Array.from({ length: 13 }, (_, idx) => {
+    const year = 2025 + idx;
+    return {
+      year,
+      cashFlow: totalCapex + annualValue * idx,
+    };
+  });
 
   const opexData = [
     { year: 2025, savings: annualValue, euSavings: annualValue * 0.3 },
@@ -508,15 +519,15 @@ function Tracker({ userEmail, onLogout }) {
 
 <ResponsiveContainer width="100%" height={280}>
   <BarChart data={investmentData}>
-    <CartesianGrid strokeDasharray="3 3" />
-    <XAxis dataKey="name" />
-    <YAxis />
-    <Tooltip />
-    <Bar dataKey="value">
+    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+    <YAxis tickFormatter={formatMillions} tick={{ fontSize: 11 }} />
+    <Tooltip formatter={(value) => formatCurrencyShort(value)} />
+    <Bar dataKey="value" radius={[3, 3, 0, 0]}>
       {investmentData.map((entry, index) => (
         <Cell
           key={index}
-          fill={index === 0 ? "#ef4444" : "#6b9de8"}
+          fill={entry.value < 0 ? "#e0746a" : "#6b9de8"}
         />
       ))}
     </Bar>
@@ -537,18 +548,31 @@ function Tracker({ userEmail, onLogout }) {
     <div className="card-body">
 
 <ResponsiveContainer width="100%" height={280}>
-  <LineChart data={cashFlowData}>
-    <CartesianGrid strokeDasharray="3 3" />
-    <XAxis dataKey="year" />
-    <YAxis />
-    <Tooltip />
-    <Line
+  <AreaChart data={cashFlowData}>
+    <defs>
+      <linearGradient id="cashFlowFill" x1="1" y1="0" x2="0" y2="0">
+        <stop offset="0%" stopColor="#94A3B8" stopOpacity={0.12} />
+        <stop offset="100%" stopColor="#94A3B8" stopOpacity={0.32} />
+      </linearGradient>
+      <linearGradient id="cashFlowStroke" x1="1" y1="0" x2="0" y2="0">
+        <stop offset="0%" stopColor="#5A84CA" />
+        <stop offset="100%" stopColor="#2F6ECB" />
+      </linearGradient>
+    </defs>
+    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+    <XAxis dataKey="year" ticks={[2025, 2028, 2031, 2034, 2037]} tick={{ fontSize: 11 }} />
+    <YAxis domain={[200000, 'auto']} tickFormatter={formatMillions} tick={{ fontSize: 11 }} />
+    <Tooltip formatter={(value) => formatCurrencyShort(value)} />
+    <Area
       type="monotone"
       dataKey="cashFlow"
-      stroke="#2563eb"
+      stroke="url(#cashFlowStroke)"
       strokeWidth={2}
+      fill="url(#cashFlowFill)"
+      dot={{ r: 3, fill: '#2F6ECB' }}
+      activeDot={{ r: 4 }}
     />
-  </LineChart>
+  </AreaChart>
 </ResponsiveContainer>
     </div>
 
@@ -573,8 +597,9 @@ function Tracker({ userEmail, onLogout }) {
     <YAxis />
     <Tooltip />
     <Legend />
-    <Bar dataKey="savings" fill="#6b9de8" />
-    <Bar dataKey="euSavings" fill="#cfd9ef" />
+    <Bar dataKey="savings" stackId="opex" fill="#6b9de8" name="Savings" />
+    <Bar dataKey="euSavings" stackId="opex" fill="#cfd9ef" name="EU Savings" />
+    
   </BarChart>
 </ResponsiveContainer>
   </div>
@@ -584,7 +609,7 @@ function Tracker({ userEmail, onLogout }) {
 
              
 <div className="simulator-right"> 
-   
+              <div className="kpi-row">
                {/* Active ESDs */}
                 <div className="kpi-card">
                   <div className="kpi-label">ESDs Active</div>
@@ -627,8 +652,8 @@ function Tracker({ userEmail, onLogout }) {
                   </div>
                 </div>
 
-                {/* CII Rating */}
-                <div className="card" style={{ padding: '12px' }}>
+                </div>
+                                <div className="card" style={{ padding: '12px' }}>
                   <div className="kpi-label">CII Rating</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
                     <div style={{ padding: '8px 12px', border: '2px solid #DC2626', borderRadius: '6px', fontWeight: '600', fontSize: '14px', color: '#DC2626', minWidth: '50px', textAlign: 'center' }}>
@@ -643,7 +668,7 @@ function Tracker({ userEmail, onLogout }) {
                 </div>
 
                 {/* Impact Breakdown */}
-                <div className="card" style={{ padding: '12px' }}>
+                <div className="card" style={{ padding: '12px', height: '530px' }}>
                   <div className="kpi-label">Impact Breakdown</div>
                   <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {selectedEsdObjects.map((esd) => (
@@ -654,8 +679,15 @@ function Tracker({ userEmail, onLogout }) {
                     ))}
                   </div>
                 </div>
+
+                {/* CII Rating */}
+
               </div>
+
+              
             </div>
+
+            
 
             {/* Bottom note */}
             <div style={{ marginTop: '20px', fontSize: '10px', color: '#9CA3AF', textAlign: 'right' }}>
