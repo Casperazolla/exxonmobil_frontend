@@ -122,15 +122,24 @@ body {
 /* ── CONTAINER ── */
 .container {
   flex: 1;
-  max-width: 100%;
+  max-width: none;
   margin: 0 auto;
-  padding: 12px;
+  padding: 8px;
   width: 100%;
   overflow-y: auto;
 }
 
 .page-content {
   animation: fadeIn 0.3s ease;
+}
+
+.selected-esd-card{
+  padding:8px 12px;
+}
+
+.selected-tag{
+  font-size:11px;
+  padding:3px 8px;
 }
 
 @keyframes fadeIn {
@@ -174,13 +183,10 @@ body {
   overflow: hidden;
 }
 
-.card-hd {
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #FAFAFA;
+.card-hd{
+  min-height:34px;
+  padding:8px 12px;
+  border-bottom:1px solid #ececec;
 }
 
 .card-title {
@@ -255,13 +261,11 @@ body {
 }
 
 /* ── KPI GRID ── */
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-bottom: 24px;
+.kpi-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
 }
-
 .kpi-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -627,4 +631,26 @@ body {
   border-radius: 20px;
   padding: 5px 10px;
   font-size: 11px;
+}
+
+
+.kpi-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+}
+
+.kpi-card{
+  padding:8px;
+  min-height:72px;
+}
+
+.kpi-title{
+  font-size:10px;
+  color:#8b8b8b;
+}
+
+.kpi-value{
+  font-size:14px;
+  font-weight:700;
 }

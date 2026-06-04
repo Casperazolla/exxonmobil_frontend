@@ -1,32 +1,42 @@
-.simulator-layout {
-  display: grid;
-  grid-template-columns: 170px 1fr 170px;
-  gap: 8px;
-  align-items: start;
+.simulator-layout{
+  display:grid;
+  grid-template-columns:190px 1fr 250px;
+  gap:10px;
+}
+.simulator-center{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
 }
 
-.simulator-center {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.simulator-right{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
 }
 
-.simulator-right {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.chart-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
 }
 
-.chart-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+.chart-card{
+  min-height:330px;
 }
 
-.chart-card {
-  min-height: 420px;
+.opex-card{
+  min-height:340px;
 }
 
-.opex-card {
-  height: 340px;
+.simulator-page{
+  width:100%;
+}
+
+.simulator-layout{
+  display:grid;
+  grid-template-columns:190px 1fr 250px;
+  gap:10px;
+  align-items:start;
+  width:100%;
 }

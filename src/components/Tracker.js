@@ -1,8 +1,20 @@
 import React, { useState } from 'react';
+
+
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, Cell
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Cell
 } from 'recharts';
+
 import './Tracker.css';
 import { ESD_LIBRARY } from '../data/esdLibrary';
 import { SAMPLE_VESSELS } from '../data/vessels';
@@ -494,7 +506,7 @@ function Tracker({ userEmail, onLogout }) {
 
     <div className="card-body">
 
-<ResponsiveContainer width="100%" height={250}>
+<ResponsiveContainer width="100%" height={280}>
   <BarChart data={investmentData}>
     <CartesianGrid strokeDasharray="3 3" />
     <XAxis dataKey="name" />
@@ -504,7 +516,7 @@ function Tracker({ userEmail, onLogout }) {
       {investmentData.map((entry, index) => (
         <Cell
           key={index}
-          fill={index === 0 ? "#D96C63" : "#7694CF"}
+          fill={index === 0 ? "#ef4444" : "#6b9de8"}
         />
       ))}
     </Bar>
@@ -524,7 +536,7 @@ function Tracker({ userEmail, onLogout }) {
 
     <div className="card-body">
 
-<ResponsiveContainer width="100%" height={250}>
+<ResponsiveContainer width="100%" height={280}>
   <LineChart data={cashFlowData}>
     <CartesianGrid strokeDasharray="3 3" />
     <XAxis dataKey="year" />
@@ -533,7 +545,7 @@ function Tracker({ userEmail, onLogout }) {
     <Line
       type="monotone"
       dataKey="cashFlow"
-      stroke="#2C6FBF"
+      stroke="#2563eb"
       strokeWidth={2}
     />
   </LineChart>
@@ -554,23 +566,15 @@ function Tracker({ userEmail, onLogout }) {
 
   <div className="card-body">
 
-<ResponsiveContainer width="100%" height={300}>
+<ResponsiveContainer width="100%" height={320}>
   <BarChart data={opexData}>
     <CartesianGrid strokeDasharray="3 3" />
     <XAxis dataKey="year" />
     <YAxis />
     <Tooltip />
     <Legend />
-    <Bar
-      dataKey="savings"
-      fill="#7694CF"
-      name="Fuel Savings"
-    />
-    <Bar
-      dataKey="euSavings"
-      fill="#C7D4EF"
-      name="EU Savings"
-    />
+    <Bar dataKey="savings" fill="#6b9de8" />
+    <Bar dataKey="euSavings" fill="#cfd9ef" />
   </BarChart>
 </ResponsiveContainer>
   </div>
@@ -578,9 +582,10 @@ function Tracker({ userEmail, onLogout }) {
 </div>
 </div>
 
-              {/* RIGHT: KPI Cards */}
-{/* RIGHT: KPI Cards */}
-<div className="simulator-right">                {/* Active ESDs */}
+             
+<div className="simulator-right"> 
+   
+               {/* Active ESDs */}
                 <div className="kpi-card">
                   <div className="kpi-label">ESDs Active</div>
                   <div className="kpi-value" style={{ color: '#1D9E75' }}>{selectedEsds.length}</div>
