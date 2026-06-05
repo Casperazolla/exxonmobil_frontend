@@ -524,7 +524,7 @@ function Tracker({ userEmail, onLogout }) {
       {investmentData.map((entry, index) => (
         <Cell
           key={index}
-          fill={entry.value < 0 ? "#e0746acb" : "#6b9de8ce"}
+          fill={entry.value < 0 ? "#e0746acb" : "#6b9de8e3"}
         />
       ))}
     </Bar>
@@ -594,7 +594,7 @@ function Tracker({ userEmail, onLogout }) {
     <YAxis />
     <Tooltip />
     <Legend />
-    <Bar dataKey="savings" stackId="opex" fill="#6b9de8ce" name="Savings" />
+    <Bar dataKey="savings" stackId="opex" fill="#6b9de8e3" name="Savings" />
     <Bar dataKey="euSavings" stackId="opex" fill="#cfd9efce" name="EU Savings" />
     
   </BarChart>
