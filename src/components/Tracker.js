@@ -208,13 +208,12 @@ function Tracker({ userEmail, onLogout }) {
   const accumulatedSavings = annualValue * 2.5;
   const savingsPV = annualValue * 8;
 
-  // Chart data
-  const investmentData = [
-    { name: 'Total Cost', value: totalCapex },
-    { name: 'Accum. Savings', value: accumulatedSavings },
-    { name: 'NPV', value: npv },
-    { name: 'Savings PV', value: savingsPV },
-  ];
+ const investmentData = [
+  { name: 'Total Cost', value: totalCapex },
+  { name: 'Accum. Savings', value: -accumulatedSavings },
+  { name: 'NPV', value: Math.max(npv, 0) },
+  { name: 'Savings PV', value: savingsPV },
+];
 
   const cashFlowData = Array.from({ length: 13 }, (_, idx) => {
     const year = 2025 + idx;
@@ -233,9 +232,7 @@ function Tracker({ userEmail, onLogout }) {
     { year: 2030, savings: annualValue, euSavings: annualValue * 0.35 },
     { year: 2031, savings: annualValue, euSavings: annualValue * 0.4 },
     { year: 2032, savings: annualValue, euSavings: annualValue * 0.4 },
-    { year: 2033, savings: annualValue, euSavings: annualValue * 0.4 },
-    { year: 2034, savings: annualValue, euSavings: annualValue * 0.4 },
-    { year: 2035, savings: annualValue, euSavings: annualValue * 0.45 },
+   
   ];
 
   return (
@@ -527,7 +524,7 @@ function Tracker({ userEmail, onLogout }) {
       {investmentData.map((entry, index) => (
         <Cell
           key={index}
-          fill={entry.value < 0 ? "#e0746a" : "#6b9de8"}
+          fill={entry.value < 0 ? "#e0746acb" : "#6b9de8ce"}
         />
       ))}
     </Bar>
@@ -597,8 +594,8 @@ function Tracker({ userEmail, onLogout }) {
     <YAxis />
     <Tooltip />
     <Legend />
-    <Bar dataKey="savings" stackId="opex" fill="#6b9de8" name="Savings" />
-    <Bar dataKey="euSavings" stackId="opex" fill="#cfd9ef" name="EU Savings" />
+    <Bar dataKey="savings" stackId="opex" fill="#6b9de8ce" name="Savings" />
+    <Bar dataKey="euSavings" stackId="opex" fill="#cfd9efce" name="EU Savings" />
     
   </BarChart>
 </ResponsiveContainer>
