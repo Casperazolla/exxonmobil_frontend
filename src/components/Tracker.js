@@ -146,6 +146,17 @@ function Tracker({ userEmail, onLogout }) {
     setActiveTab('simulator');
   };
 
+  const handleExportPdf = () => {
+    if (!vessel) {
+      return;
+    }
+
+    const previousTitle = document.title;
+    document.title = `${vessel.vesselName || 'Vessel'} Report`;
+    window.print();
+    document.title = previousTitle;
+  };
+
   const formatNumber = (num) => {
     return new Intl.NumberFormat('en-US').format(Math.round(num));
   };
@@ -384,7 +395,7 @@ function Tracker({ userEmail, onLogout }) {
 
         {/* ===== SIMULATOR PAGE ===== */}
         {activeTab === 'simulator' && simulatingId && (
-          <div className="page-content simulator-page">
+          <div className="page-content simulator-page report-export">
             {/* Header with vessel badge */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -395,7 +406,7 @@ function Tracker({ userEmail, onLogout }) {
                   🚢 Tenjun 9343390
                 </span>
               </div>
-              <button className="btn btn-secondary" style={{ gap: '6px' }}>
+              <button className="btn btn-secondary" style={{ gap: '6px' }} onClick={handleExportPdf} type="button">
                 📥 Export PDF
               </button>
             </div>
@@ -516,7 +527,7 @@ function Tracker({ userEmail, onLogout }) {
 
 <ResponsiveContainer width="100%" height={280}>
   <BarChart data={investmentData}>
-    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+    <CartesianGrid stroke="#E5E7EB" strokeOpacity={0.6} vertical={false} />
     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
     <YAxis tickFormatter={formatMillions} tick={{ fontSize: 11 }} />
     <Tooltip formatter={(value) => formatCurrencyShort(value)} />
@@ -556,7 +567,7 @@ function Tracker({ userEmail, onLogout }) {
         <stop offset="100%" stopColor="#2F6ECB" />
       </linearGradient>
     </defs>
-    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+    <CartesianGrid stroke="#E5E7EB" strokeOpacity={0.6} vertical={false} />
     <XAxis dataKey="year" ticks={[2025, 2028, 2031, 2034, 2037]} tick={{ fontSize: 11 }} />
     <YAxis domain={[200000, 'auto']} tickFormatter={formatMillions} tick={{ fontSize: 11 }} />
     <Tooltip formatter={(value) => formatCurrencyShort(value)} />
@@ -589,7 +600,7 @@ function Tracker({ userEmail, onLogout }) {
 
 <ResponsiveContainer width="100%" height={320}>
   <BarChart data={opexData}>
-    <CartesianGrid strokeDasharray="3 3" />
+    <CartesianGrid stroke="#E5E7EB" strokeOpacity={0.6} vertical={false} />
     <XAxis dataKey="year" />
     <YAxis />
     <Tooltip />

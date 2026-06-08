@@ -654,3 +654,66 @@ body {
   font-size:14px;
   font-weight:700;
 }
+
+/* ── PRINT / PDF EXPORT ── */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .nav,
+  .modal-overlay,
+  .page-content:not(.simulator-page),
+  .btn,
+  .nav-right,
+  .nav-tabs {
+    display: none !important;
+  }
+
+  .tracker-wrapper {
+    min-height: auto;
+  }
+
+  .container {
+    padding: 0 !important;
+  }
+
+  .page-content.simulator-page {
+    display: block !important;
+    padding: 0 !important;
+  }
+
+  .simulator-layout {
+    display: block !important;
+  }
+
+  .esd-library {
+    display: none !important;
+  }
+
+  .simulator-center,
+  .simulator-right {
+    width: 100% !important;
+  }
+
+  .chart-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .card,
+  .kpi-card {
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .simulator-page {
+    background: #ffffff !important;
+  }
+}
