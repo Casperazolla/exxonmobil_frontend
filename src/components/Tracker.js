@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 
 import {
@@ -30,7 +30,7 @@ function Tracker({ userEmail, onLogout }) {
   const [trackerData] = useState(SAMPLE_TRACKER);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [simulatingId, setSimulatingId] = useState(null);
+  const [simulatingId, setSimulatingId] = useState(SAMPLE_VESSELS[0]?.id ?? null);
   const [selectedEsds, setSelectedEsds] = useState([]);
 
   // Form state
@@ -104,6 +104,19 @@ function Tracker({ userEmail, onLogout }) {
     setModalOpen(false);
     setEditingId(null);
   };
+
+  useEffect(() => {
+    if (vessels.length === 0) {
+      setSimulatingId(null);
+      return;
+    }
+
+    const activeVesselExists = vessels.some(vessel => vessel.id === simulatingId);
+
+    if (!activeVesselExists) {
+      setSimulatingId(vessels[0].id);
+    }
+  }, [simulatingId, vessels]);
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
@@ -267,14 +280,12 @@ function Tracker({ userEmail, onLogout }) {
           >
             Vessels
           </button>
-          {simulatingId && (
-            <button
-              className={`nav-tab ${activeTab === 'simulator' ? 'on' : ''}`}
-              onClick={() => setActiveTab('simulator')}
-            >
-              ESD Simulator
-            </button>
-          )}
+          <button
+            className={`nav-tab ${activeTab === 'simulator' ? 'on' : ''}`}
+            onClick={() => setActiveTab('simulator')}
+          >
+            ESD Simulator
+          </button>
         </div>
         <div className="nav-right">
           <span className="user-email">{userEmail}</span>
@@ -394,7 +405,7 @@ function Tracker({ userEmail, onLogout }) {
         )}
 
         {/* ===== SIMULATOR PAGE ===== */}
-        {activeTab === 'simulator' && simulatingId && (
+        {activeTab === 'simulator' && (
           <div className="page-content simulator-page report-export">
             {/* Header with vessel badge */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
