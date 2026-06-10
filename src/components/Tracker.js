@@ -19,7 +19,7 @@ import './Tracker.css';
 import { ESD_LIBRARY } from '../data/esdLibrary';
 import { SAMPLE_VESSELS } from '../data/vessels';
 import { SAMPLE_TRACKER } from '../data/trackerData';
-import './Simulator/Simulator.css';
+import './Simulator.css';
 
 
 
@@ -442,13 +442,16 @@ function Tracker({ userEmail, onLogout }) {
                       <div style={{ padding: '8px 12px', fontWeight: '600', fontSize: '10px', color: getCategoryColor(group.category), backgroundColor: '#f9fafb', borderTop: '1px solid #E5E7EB' }}>
                         • {group.category}
                       </div>
-                      {group.items.map((esd) => (
-                        <label key={esd.id} style={{ display: 'flex', alignItems: 'flex-start', padding: '8px 12px', borderBottom: '0.5px solid #E5E7EB', cursor: 'pointer', gap: '6px' }}>
+                      {group.items.map((esd) => {
+                        const isSelected = selectedEsds.includes(esd.id);
+                        return (
+                        <label key={esd.id} style={{ display: 'flex', alignItems: 'flex-start', padding: '8px 12px', borderBottom: '0.5px solid #E5E7EB', cursor: 'pointer', gap: '6px', backgroundColor: isSelected ? '#E8F7F2' : '#FFFFFF' }}>
                           <input
                             type="checkbox"
-                            checked={selectedEsds.includes(esd.id)}
+                            className="esd-checkbox"
+                            checked={isSelected}
                             onChange={() => toggleEsd(esd.id)}
-                            style={{ marginTop: '2px' }}
+                            style={{ marginTop: '2px'  }}
                           />
                           <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: '500', fontSize: '11px' }}>{esd.name}</div>
@@ -457,7 +460,8 @@ function Tracker({ userEmail, onLogout }) {
                             </div>
                           </div>
                         </label>
-                      ))}
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
@@ -466,51 +470,57 @@ function Tracker({ userEmail, onLogout }) {
               {/* CENTER: Charts & Content */}
 {/* CENTER: Charts & Content */}
 <div className="simulator-center">                {/* Selected ESDs */}
-                {selectedEsdObjects.length > 0 && (
-                  <div className="card">
-                    <div className="card-body" style={{ padding: '12px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', color: '#1A1A1A' }}>
-                        Selected ESDs <span style={{ color: '#9CA3AF' }}>({selectedEsds.length} selected)</span>
-                      </div>
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        {selectedEsdObjects.map((esd) => (
-                          <div
-                            key={esd.id}
-                            style={{
-                              background: '#F3F4F6',
-                              border: '1px solid #E5E7EB',
-                              borderRadius: '4px',
-                              padding: '5px 8px',
-                              fontSize: '11px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              color: '#1A1A1A',
-                            }}
-                          >
-                            {esd.name}
-                            <button
-                              onClick={() => removeSelectedEsd(esd.id)}
+                <div className="card">
+                  <div className="card-body" style={{ padding: '12px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', color: '#1A1A1A' }}>
+                      Selected ESDs <span style={{ color: '#9CA3AF' }}>({selectedEsds.length} selected)</span>
+                    </div>
+                    {selectedEsdObjects.length > 0 ? (
+                      <>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          {selectedEsdObjects.map((esd) => (
+                            <div
+                              key={esd.id}
                               style={{
-                                background: 'transparent',
-                                border: 'none',
-                                cursor: 'pointer',
-                                color: '#9CA3AF',
-                                padding: '0',
-                                fontSize: '12px',
+                                background: '#F3F4F6',
+                                border: '1px solid #E5E7EB',
+                                borderRadius: '4px',
+                                padding: '5px 8px',
+                                fontSize: '11px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                color: '#1A1A1A',
                               }}
                             >
-                              ×
-                            </button>
-                          </div>
-                        ))}
+                              {esd.name}
+                              <button
+                                onClick={() => removeSelectedEsd(esd.id)}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: '#9CA3AF',
+                                  padding: '0',
+                                  fontSize: '12px',
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ fontSize: '9px', color: '#9CA3AF', marginTop: '6px' }}>
+                          Click to remove
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: '11px', color: '#9CA3AF' }}>
+                        Select an ESD to continue
                       </div>
-                      <div style={{ fontSize: '9px', color: '#9CA3AF', marginTop: '6px' }}>
-                        Click to remove
-                      </div>
-                    </div>
+                    )}
                   </div>
-                )}
+                </div>
 
 
                 <div className="chart-row">
@@ -535,7 +545,7 @@ function Tracker({ userEmail, onLogout }) {
       {investmentData.map((entry, index) => (
         <Cell
           key={index}
-          fill={entry.value < 0 ? "#e0746acb" : "#6b9de8e3"}
+          fill={entry.value < 0 ? "#e0746acb" : "#216ad8bb"}
         />
       ))}
     </Bar>
@@ -564,7 +574,7 @@ function Tracker({ userEmail, onLogout }) {
       </linearGradient>
       <linearGradient id="cashFlowStroke" x1="1" y1="0" x2="0" y2="0">
         <stop offset="0%" stopColor="#5A84CA" />
-        <stop offset="100%" stopColor="#2F6ECB" />
+        <stop offset="100%" stopColor="#216ad8bb" />
       </linearGradient>
     </defs>
     <CartesianGrid stroke="#E5E7EB" strokeOpacity={0.6} vertical={false} />
@@ -605,8 +615,8 @@ function Tracker({ userEmail, onLogout }) {
     <YAxis />
     <Tooltip />
     <Legend />
-    <Bar dataKey="savings" stackId="opex" fill="#6b9de8e3" name="Savings" />
-    <Bar dataKey="euSavings" stackId="opex" fill="#cfd9efce" name="EU Savings" />
+    <Bar dataKey="savings" stackId="opex" fill="#216ad8bb" name="Savings" />
+    <Bar dataKey="euSavings" stackId="opex" fill="#b1c5f1ce" name="EU Savings" />
     
   </BarChart>
 </ResponsiveContainer>

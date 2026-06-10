@@ -518,6 +518,14 @@ body {
   box-shadow: 0 0 0 3px rgba(29, 158, 117, 0.1);
 }
 
+.esd-checkbox {
+  accent-color: var(--green);
+}
+
+.esd-checkbox:checked {
+  accent-color: var(--green);
+}
+
 .form-input::placeholder {
   color: var(--ink3);
 }
