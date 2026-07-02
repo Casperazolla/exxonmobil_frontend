@@ -718,10 +718,7 @@ function Tracker({ userEmail, onLogout }) {
 
             
 
-            {/* Bottom note */}
-            <div style={{ marginTop: '20px', fontSize: '10px', color: '#9CA3AF', textAlign: 'right' }}>
-              {selectedEsds.length} ESD selected · Financial projections based on vessel data
-            </div>
+           
           </div>
         )}
       </div>

@@ -1,41 +1,163 @@
+
 import React, { useState } from 'react';
+import { authAPI } from '../services/apiService';
 import './LoginPage.css';
 
 function LoginPage({ onLoginSuccess }) {
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const [authStep, setAuthStep] = useState('login'); 
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [otp, setOtp] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+
+
+  const isValidEmail = (email) => {
+    return email.includes('@') && email.length > 5;
+  };
+
+
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
     if (!email || !password) {
       setError('Please fill in all fields');
-      setLoading(false);
       return;
     }
 
-    if (!email.includes('@')) {
+    if (!isValidEmail(email)) {
       setError('Please enter a valid email');
-      setLoading(false);
       return;
     }
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
-      setLoading(false);
       return;
     }
 
-    setTimeout(() => {
+    setLoading(true);
+
+    try {
+     
+      const response = await authAPI.login(email, password);
+
+      if (response.success) {
+        console.log('Login successful:', response.data);
+        
+    
+        onLoginSuccess(response.data.user || email);
+        
+        // Clear form
+        setEmail('');
+        setPassword('');
+      } else {
+        setError(response.error || 'Login failed');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+      console.error('Login error:', err);
+    } finally {
       setLoading(false);
-      onLoginSuccess(email);
-      setEmail('');
-      setPassword('');
-    }, 500);
+    }
+  };
+
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!email || !password || !firstName || !lastName) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      setError('Please enter a valid email');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      
+      const response = await authAPI.signup(
+        email,
+        password,
+        firstName,
+        lastName,
+        'user'
+      );
+
+      if (response.success) {
+        console.log('Signup successful, check email for OTP');
+        
+        
+        setSignupEmail(email);
+        
+       
+        setAuthStep('verify');
+        setOtp('');
+      } else {
+        setError(response.error || 'Signup failed');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+      console.error('Signup error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+ 
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!otp || otp.length < 4) {
+      setError('Please enter a valid OTP');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+     
+      const response = await authAPI.verifyOtp(signupEmail, otp);
+
+      if (response.success) {
+        console.log('OTP verified:', response.data);
+        
+       
+        onLoginSuccess(response.data.user || signupEmail);
+        
+        
+        setAuthStep('login');
+        setEmail('');
+        setPassword('');
+        setFirstName('');
+        setLastName('');
+        setOtp('');
+        setSignupEmail('');
+      } else {
+        setError(response.error || 'OTP verification failed');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+      console.error('OTP verification error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -49,45 +171,256 @@ function LoginPage({ onLoginSuccess }) {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="form-section-title">Login</div>
+        {error && <div className="form-error">{error}</div>}
 
-          {error && <div className="form-error">{error}</div>}
+        {/* LOGIN FORM */}
+        {authStep === 'login' && (
+          <form onSubmit={handleLogin} className="login-form">
+            <div className="form-section-title">Login</div>
 
-          <div className="form-group">
-            <label htmlFor="email" className="form-label">Email Address</label>
-            <input
-              id="email"
-              type="email"
-              className="form-input"
-              placeholder="user@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+            <div className="form-group">
+              <label htmlFor="login-email" className="form-label">
+                Email Address
+              </label>
+              <input
+                id="login-email"
+                type="email"
+                className="form-input"
+                placeholder="user@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                autoComplete="email"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="login-password" className="form-label">
+                Password
+              </label>
+              <input
+                id="login-password"
+                type="password"
+                className="form-input"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                autoComplete="current-password"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary"
               disabled={loading}
-            />
-          </div>
+            >
+              {loading ? ' Signing in...' : '→ Sign In'}
+            </button>
 
-          <div className="form-group">
-            <label htmlFor="password" className="form-label">Password</label>
-            <input
-              id="password"
-              type="password"
-              className="form-input"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+            <div
+              style={{
+                textAlign: 'center',
+                marginTop: '12px',
+                fontSize: '14px',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              Don't have an account?{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthStep('signup');
+                  setError('');
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-primary)',
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                }}
+              >
+                Sign up
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* SIGNUP FORM */}
+        {authStep === 'signup' && (
+          <form onSubmit={handleSignup} className="login-form">
+            <div className="form-section-title">Create Account</div>
+
+            <div className="form-group">
+              <label htmlFor="signup-email" className="form-label">
+                Email Address
+              </label>
+              <input
+                id="signup-email"
+                type="email"
+                className="form-input"
+                placeholder="user@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                autoComplete="email"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="signup-fname" className="form-label">
+                First Name
+              </label>
+              <input
+                id="signup-fname"
+                type="text"
+                className="form-input"
+                placeholder="John"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="signup-lname" className="form-label">
+                Last Name
+              </label>
+              <input
+                id="signup-lname"
+                type="text"
+                className="form-input"
+                placeholder="Doe"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="signup-password" className="form-label">
+                Password
+              </label>
+              <input
+                id="signup-password"
+                type="password"
+                className="form-input"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                autoComplete="new-password"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary"
               disabled={loading}
-            />
-          </div>
+            >
+              {loading ? ' Creating account...' : '→ Sign Up'}
+            </button>
 
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? '🔄 Signing in...' : '→ Sign In'}
-          </button>
-        </form>
+            <div
+              style={{
+                textAlign: 'center',
+                marginTop: '12px',
+                fontSize: '14px',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              Already have an account?{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthStep('login');
+                  setError('');
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-primary)',
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                }}
+              >
+                Sign in
+              </button>
+            </div>
+          </form>
+        )}
 
-        <div className="login-footer">
-          Demo: Use any email and 6+ character password
-        </div>
+        {/* OTP VERIFICATION FORM */}
+        {authStep === 'verify' && (
+          <form onSubmit={handleVerifyOtp} className="login-form">
+            <div className="form-section-title">Verify OTP</div>
+            <div
+              style={{
+                fontSize: '13px',
+                color: 'var(--text-secondary)',
+                marginBottom: '16px',
+              }}
+            >
+              Enter the 6-digit code sent to {signupEmail}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="otp-input" className="form-label">
+                OTP Code
+              </label>
+              <input
+                id="otp-input"
+                type="text"
+                className="form-input"
+                placeholder="000000"
+                value={otp}
+                onChange={(e) =>
+                  setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
+                }
+                disabled={loading}
+                maxLength="6"
+                autoComplete="off"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={loading}
+            >
+              {loading ? '🔄 Verifying...' : '→ Verify'}
+            </button>
+
+            <div
+              style={{
+                textAlign: 'center',
+                marginTop: '12px',
+                fontSize: '14px',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthStep('signup');
+                  setError('');
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-primary)',
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                }}
+              >
+                Back to sign up
+              </button>
+            </div>
+          </form>
+        )}
+
+        
       </div>
     </div>
   );
