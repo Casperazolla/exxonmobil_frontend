@@ -1,10 +1,10 @@
 
-
 import axios from 'axios';
 import { hostname } from '../config/apiConfig';
 
 const api = axios.create({
   baseURL: hostname,
+  withCredentials: true,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -17,7 +17,9 @@ api.interceptors.request.use(
     const token = localStorage.getItem('Authorization');
     
     if (token) {
-      config.headers.Authorization = token;
+      config.headers.Authorization = token.startsWith('Bearer ')
+        ? token
+        : `Bearer ${token}`;
     }
 
     if (config.data instanceof FormData) {
@@ -48,12 +50,15 @@ api.interceptors.response.use(
     }
 
     
-    if (error.response?.status === 401) {
-      console.warn('Unauthorized, logging out...');
-      localStorage.removeItem('Authorization');
-      window.location.href = '/login';
-      return Promise.reject(error);
-    }
+ if (error.response?.status === 401) {
+  console.error(
+    "401 ERROR",
+    error.config?.url,
+    error.response?.data
+  );
+
+  return Promise.reject(error);
+}
 
    
     return Promise.reject(error);
@@ -91,7 +96,7 @@ export const authAPI = {
       return {
         success: false,
         error: error.response?.data?.message || error.message,
-        status: error.response?.status,
+        status: error.response?.data,
       };
     }
   },
@@ -103,7 +108,6 @@ export const authAPI = {
         email,
         otp,
       });
-      // Save token if provided
       if (response.data.access) {
         localStorage.setItem('Authorization', response.data.access);
       }
@@ -112,32 +116,46 @@ export const authAPI = {
       return {
         success: false,
         error: error.response?.data?.message || error.message,
-        status: error.response?.status,
+        status: error.response?.data,
       };
     }
   },
 
   
-  login: async (email, password) => {
-    try {
-      const response = await api.post('/users/login/', {
-        email,
-        password,
-      });
-      
-      if (response.data.access) {
-        localStorage.setItem('Authorization', response.data.access);
-      }
-      return { success: true, data: response.data };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.response?.data?.message || 'Login failed',
-        status: error.response?.status,
-      };
-    }
-  },
+login: async (email, password) => {
+  try {
+    const response = await api.post('/users/login/', {
+      email,
+      password,
+    });
 
+    console.log("LOGIN RESPONSE", response.data);
+
+    const token =
+      response.data?.access ||
+      response.data?.data?.access;
+
+    if (token) {
+      localStorage.setItem("Authorization", token);
+      console.log(
+  "Saved token:",
+  localStorage.getItem("Authorization")
+);
+    }
+
+    return {
+      success: true,
+      data: response.data,
+    };
+
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.message || "Login failed",
+      status: error.response?.data,
+    };
+  }
+},
   
   logout: async () => {
     try {
@@ -181,7 +199,7 @@ export const vesselAPI = {
 
   getAll: async () => {
     try {
-      const data = await makeRequest('GET', '/vessels/');
+      const data = await makeRequest('GET', '/home/list-vessels/');
       return { success: true, data };
     } catch (error) {
       return {
@@ -191,6 +209,8 @@ export const vesselAPI = {
     }
   },
 
+
+  
 
   getById: async (id) => {
     try {
@@ -203,6 +223,35 @@ export const vesselAPI = {
       };
     }
   },
+};
+
+export const onboardingAPI = {
+
+  onboardVessel: async (payload) => {
+    try {
+      const data = await makeRequest(
+        'POST',
+        '/home/onboard-vessel/',
+        payload
+      );
+
+      return {
+        success: true,
+        data,
+      };
+
+    } catch (error) {
+
+      return {
+        success: false,
+        error:
+          error.response?.data?.message ||
+          error.message,
+      };
+
+    }
+  },
+
 };
 
 export const uploadAPI = {

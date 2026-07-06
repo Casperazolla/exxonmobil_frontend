@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-
+import {Select, Input} from "antd";
 
 import {
   BarChart,
@@ -20,6 +20,46 @@ import { ESD_LIBRARY } from '../data/esdLibrary';
 import { SAMPLE_VESSELS } from '../data/vessels';
 import { SAMPLE_TRACKER } from '../data/trackerData';
 import './Simulator.css';
+import { onboardingAPI, vesselAPI } from '../services/apiService';
+
+
+const { Option } = Select;
+const mapApiVesselToLocal = (raw = {}, index = 0) => {
+  const v = raw.vessel || raw;
+  const meta = raw.voyage_meta || raw.voyageMeta || {};
+  const machines = raw.machines || [];
+  const esdMeasures = raw.esd_measures || raw.esdMeasures || [];
+
+  return {
+    id: raw.id ?? v.id ?? `v${index}`,
+    month: meta.analysis_month ?? '',
+    year: meta.analysis_year ?? new Date().getFullYear(),
+    dockMonth: meta.docking_month ?? '',
+    owner: v.name_of_owner ?? '',
+    vesselName: v.vessel_name ?? '',
+    vesselType: v.vessel_type ?? '',
+    buildYear: v.build_year ?? '',
+    flag: v.flag ?? '',
+    classificationSociety: v.classification_society ?? '',
+    imoNumber: v.imo_number ?? '',
+    grossTonnage: v.gross_tonnage ?? '',
+    deadWeight: v.dead_weight ?? '',
+    sailingDays: meta.sailing_days_per_year ?? '',
+    nonSteamingDays: meta.non_steaming_days_per_year ?? '',
+    euPct: meta.eu_voyages_percent ?? '',
+    euaCost: meta.eua_cost_usd ?? '',
+    costDO: raw.cost_do ?? '',
+    costLFO: raw.cost_lfo ?? '',
+    costHFO: raw.cost_hfo ?? '',
+    costLPGP: raw.cost_lpgp ?? '',
+    costLPGB: raw.cost_lpgb ?? '',
+    costLNG: raw.cost_lng ?? '',
+    feumPenalty: raw.feum_penalty ?? '',
+    ciiRating: raw.cii_rating ?? 'D',
+    machines,
+    selectedEsds: esdMeasures.map((e) => e.id).filter(Boolean),
+  };
+};
 
 
 
@@ -32,9 +72,34 @@ function Tracker({ userEmail, onLogout }) {
   const [editingId, setEditingId] = useState(null);
   const [simulatingId, setSimulatingId] = useState(SAMPLE_VESSELS[0]?.id ?? null);
   const [selectedEsds, setSelectedEsds] = useState([]);
+  const [vesselsLoading, setVesselsLoading] = useState(true);
+  const [vesselsError, setVesselsError] = useState(null);
 
-  // Form state
-  const [formData, setFormData] = useState({
+ useEffect(() => {
+ 
+
+  loadVessels();
+}, []);
+
+
+   
+const createFuel = () => ({
+  fuelName: "",
+  consumption: "",
+  price: ""
+});
+
+const createMachine = (name = "") => ({
+  machineName: name,
+  fuels: [createFuel()]
+});
+
+const [machines, setMachines] = useState([
+  createMachine("Main engine"),
+  createMachine("Auxiliary engine")
+]);
+
+const [formData, setFormData] = useState({
     month: '',
     year: new Date().getFullYear(),
     dockMonth: '',
@@ -100,6 +165,16 @@ function Tracker({ userEmail, onLogout }) {
     setModalOpen(true);
   };
 
+
+    const toggleESD = (id) => {
+    setSelectedEsds(prev =>
+        prev.includes(id)
+            ? prev.filter(item => item !== id)
+            : [...prev, id]
+    );
+};
+
+
   const closeModal = () => {
     setModalOpen(false);
     setEditingId(null);
@@ -126,26 +201,213 @@ function Tracker({ userEmail, onLogout }) {
     }));
   };
 
-  const saveVessel = () => {
-    if (!formData.vesselName || !formData.owner || !formData.imoNumber) {
-      alert('Please fill in required fields');
+  const addMachine = () => {
+  setMachines(prev => [
+    ...prev,
+    createMachine("")
+  ]);
+};
+
+const removeMachine = (machineIndex) => {
+  if (machineIndex < 2) return; // Don't delete default machines
+
+  setMachines(prev =>
+    prev.filter((_, index) => index !== machineIndex)
+  );
+};
+
+const addFuel = (machineIndex) => {
+  setMachines(prev =>
+    prev.map((machine, index) =>
+      index === machineIndex
+        ? {
+            ...machine,
+            fuels: [...machine.fuels, createFuel()]
+          }
+        : machine
+    )
+  );
+};
+
+const removeFuel = (machineIndex, fuelIndex) => {
+  setMachines(prev =>
+    prev.map((machine, index) => {
+      if (index !== machineIndex) return machine;
+
+      if (machine.fuels.length === 1) {
+        return machine;
+      }
+
+      return {
+        ...machine,
+        fuels: machine.fuels.filter((_, i) => i !== fuelIndex)
+      };
+    })
+  );
+};
+
+const updateMachineName = (machineIndex, value) => {
+  setMachines(prev =>
+    prev.map((machine, index) =>
+      index === machineIndex
+        ? { ...machine, machineName: value }
+        : machine
+    )
+  );
+};
+
+const updateFuel = (
+  machineIndex,
+  fuelIndex,
+  field,
+  value
+) => {
+  setMachines(prev =>
+    prev.map((machine, index) => {
+      if (index !== machineIndex) return machine;
+
+      return {
+        ...machine,
+        fuels: machine.fuels.map((fuel, i) =>
+          i === fuelIndex
+            ? {
+                ...fuel,
+                [field]: value
+              }
+            : fuel
+        )
+      };
+    })
+  );
+};
+
+
+const loadVessels = async () => {
+   
+  setVesselsLoading(true);
+  setVesselsError(null);
+
+  try {
+
+    const result = await vesselAPI.getAll();
+
+    
+    if (!result.success) {
+      setVesselsError(result.error);
       return;
     }
 
-    if (editingId) {
-      setVessels(vessels.map(v => 
-        v.id === editingId ? { ...formData, id: editingId } : v
-      ));
-    } else {
-      const newVessel = {
-        ...formData,
-        id: 'v' + Date.now(),
-        selectedEsds: []
-      };
-      setVessels([...vessels, newVessel]);
-    }
-    closeModal();
+   const vesselList =
+  result.data?.data?.vessels ||
+  result.data?.vessels ||
+  result.data?.results ||
+  [];
+
+   
+
+    setVessels(
+      vesselList.map((item, index) =>
+        mapApiVesselToLocal(item, index)
+      )
+    );
+
+  } catch (err) {
+
+    console.error("LOAD ERROR:", err);
+
+  } finally {
+
+    setVesselsLoading(false);
+
+  }
+
+};
+
+const saveVessel = async () => {
+
+  if (!formData.vesselName || !formData.owner || !formData.imoNumber) {
+    alert("Please fill in required fields");
+    return;
+  }
+
+  const selectedEsdObjects = selectedEsds
+    .map(id => ESD_LIBRARY.find(esd => esd.id === id))
+    .filter(Boolean);
+
+  const payload = {
+
+    vessel: {
+      name_of_owner: formData.owner,
+      vessel_name: formData.vesselName,
+      vessel_type: (formData.vesselType || "")
+        .toLowerCase()
+        .replace(/\s+/g, "_"),
+
+      build_year: parseInt(formData.buildYear, 10) || 0,
+      flag: formData.flag,
+      classification_society: formData.classificationSociety,
+      imo_number: formData.imoNumber,
+      gross_tonnage: parseFloat(formData.grossTonnage) || 0,
+      dead_weight: parseFloat(formData.deadWeight) || 0,
+    },
+
+    voyage_meta: {
+      analysis_month: parseInt(formData.month, 10) || 0,
+      analysis_year: parseInt(formData.year, 10) || 0,
+      docking_month: parseInt(formData.dockMonth, 10) || 0,
+      sailing_days_per_year: parseInt(formData.sailingDays, 10) || 0,
+      non_steaming_days_per_year:
+        parseInt(formData.nonSteamingDays, 10) || 0,
+      eu_voyages_percent: parseFloat(formData.euPct) || 0,
+      eua_cost_usd: parseFloat(formData.euaCost) || 0,
+    },
+
+    machines: machines.map(machine => ({
+      machine_name: machine.machineName,
+
+      fuel_particulars: machine.fuels.map(fuel => ({
+        fuel_name: fuel.fuelName,
+        consumption_mt: parseFloat(fuel.consumption) || 0,
+        fuel_price_usd_per_mt: parseFloat(fuel.price) || 0,
+      })),
+    })),
+
+    esd_measures: selectedEsdObjects.map(esd => ({
+      category: esd.category.toLowerCase(),
+      name: esd.name,
+      efficiency_gain_percent: esd.saving,
+      cost_usd: esd.capex,
+    })),
   };
+
+
+  try {
+
+    const response = await onboardingAPI.onboardVessel(payload);
+
+
+    if (!response.success) {
+      alert(response.error || "Failed to onboard vessel");
+      return;
+    }
+
+
+await loadVessels();
+
+closeModal();
+  } catch (error) {
+
+    console.error("Onboard Vessel Error:", error);
+
+    alert(
+      error.response?.data?.detail ||
+      error.response?.data?.message ||
+      error.message ||
+      "Something went wrong."
+    );
+
+  }
+};
 
   const deleteVessel = (vesselId) => {
     if (window.confirm('Are you sure you want to delete this vessel?')) {
@@ -259,6 +521,29 @@ function Tracker({ userEmail, onLogout }) {
    
   ];
 
+  const CATEGORY_NAMES = {
+  hull: "Hydrodynamic Upgrades",
+  propulsion: "Hydrodynamic Upgrades",
+
+  engine: "Main Engine Upgrades",
+
+  auxiliary: "Electrical Upgrades",
+
+  operations: "Thermodynamic Upgrades",
+};
+
+ const groupedEsds = {};
+
+ESD_LIBRARY.forEach((esd) => {
+  const key = CATEGORY_NAMES[esd.category.toLowerCase()] || esd.category;
+
+  if (!groupedEsds[key]) {
+    groupedEsds[key] = [];
+  }
+
+  groupedEsds[key].push(esd);
+});
+
   return (
     <div className="tracker-wrapper">
       {/* Navigation */}
@@ -315,7 +600,17 @@ function Tracker({ userEmail, onLogout }) {
                 <span className="card-title">Vessels ({vessels.length})</span>
               </div>
               <div className="card-body">
-                {vessels.length === 0 ? (
+                {vesselsLoading ? (
+                  <div className="empty-state">
+                    <div style={{ fontSize: '32px', marginBottom: '8px' }}>⏳</div>
+                    Loading vessels…
+                  </div>
+                ) : vesselsError ? (
+                  <div className="empty-state">
+                    <div style={{ fontSize: '32px', marginBottom: '8px' }}>⚠️</div>
+                    Couldn't load vessels: {vesselsError}
+                  </div>
+                ) : vessels.length === 0 ? (
                   <div className="empty-state">
                     <div style={{ fontSize: '32px', marginBottom: '8px' }}>🚢</div>
                     No vessels onboarded yet
@@ -741,7 +1036,7 @@ function Tracker({ userEmail, onLogout }) {
               </button>
             </div>
             <div className="modal-body">
-              {/* Analysis Period */}
+              <div className="onboard-card">
               <div className="form-section">
                 <div className="form-section-title">📅 Analysis Period</div>
                 <div className="form-grid form-grid-3">
@@ -752,7 +1047,6 @@ function Tracker({ userEmail, onLogout }) {
                       value={formData.month}
                       onChange={handleFormChange}
                       className="form-input"
-                      style={{ background: '#FFFBEB' }}
                     >
                       <option value="">Select month</option>
                       {[...Array(12)].map((_, i) => (
@@ -768,7 +1062,6 @@ function Tracker({ userEmail, onLogout }) {
                       value={formData.year}
                       onChange={handleFormChange}
                       className="form-input"
-                      style={{ background: '#FFFBEB' }}
                       min="2020"
                       max="2040"
                     />
@@ -780,7 +1073,6 @@ function Tracker({ userEmail, onLogout }) {
                       value={formData.dockMonth}
                       onChange={handleFormChange}
                       className="form-input"
-                      style={{ background: '#FFFBEB' }}
                     >
                       <option value="">Select month</option>
                       {[...Array(12)].map((_, i) => (
@@ -790,10 +1082,9 @@ function Tracker({ userEmail, onLogout }) {
                   </div>
                 </div>
               </div>
+                      </div>
 
-              <hr className="divider" />
-
-              {/* Vessel Identification */}
+                      <div className="onboard-card">
               <div className="form-section">
                 <div className="form-section-title">🏷️ Vessel Identification</div>
                 <div className="form-grid form-grid-3">
@@ -806,7 +1097,6 @@ function Tracker({ userEmail, onLogout }) {
                       onChange={handleFormChange}
                       placeholder="e.g. NYK Line"
                       className="form-input"
-                      style={{ background: '#FFFBEB' }}
                     />
                   </div>
                   <div className="form-group">
@@ -818,7 +1108,6 @@ function Tracker({ userEmail, onLogout }) {
                       onChange={handleFormChange}
                       placeholder="e.g. Tenjun"
                       className="form-input"
-                      style={{ background: '#FFFBEB' }}
                     />
                   </div>
                   <div className="form-group">
@@ -828,7 +1117,6 @@ function Tracker({ userEmail, onLogout }) {
                       value={formData.vesselType}
                       onChange={handleFormChange}
                       className="form-input"
-                      style={{ background: '#FFFBEB' }}
                     >
                       <option value="">Select type</option>
                       <option>Tanker</option>
@@ -848,7 +1136,6 @@ function Tracker({ userEmail, onLogout }) {
                       onChange={handleFormChange}
                       placeholder="2008"
                       className="form-input"
-                      style={{ background: '#FFFBEB' }}
                       min="1960"
                       max="2030"
                     />
@@ -862,7 +1149,6 @@ function Tracker({ userEmail, onLogout }) {
                       onChange={handleFormChange}
                       placeholder="e.g. Panama"
                       className="form-input"
-                      style={{ background: '#FFFBEB' }}
                     />
                   </div>
                   <div className="form-group">
@@ -872,7 +1158,6 @@ function Tracker({ userEmail, onLogout }) {
                       value={formData.classificationSociety}
                       onChange={handleFormChange}
                       className="form-input"
-                      style={{ background: '#FFFBEB' }}
                     >
                       <option value="">Select</option>
                       <option>ABS</option>
@@ -890,7 +1175,6 @@ function Tracker({ userEmail, onLogout }) {
                       onChange={handleFormChange}
                       placeholder="9343390"
                       className="form-input"
-                      style={{ background: '#FFFBEB' }}
                     />
                   </div>
                   <div className="form-group">
@@ -902,7 +1186,6 @@ function Tracker({ userEmail, onLogout }) {
                       onChange={handleFormChange}
                       placeholder="159927"
                       className="form-input"
-                      style={{ background: '#FFFBEB' }}
                     />
                   </div>
                   <div className="form-group">
@@ -914,15 +1197,14 @@ function Tracker({ userEmail, onLogout }) {
                       onChange={handleFormChange}
                       placeholder="302107"
                       className="form-input"
-                      style={{ background: '#FFFBEB' }}
                     />
                   </div>
                 </div>
               </div>
-
-              <hr className="divider" />
+              </div>
 
               {/* Vessel Condition Profile */}
+              <div className="onboard-card">
               <div className="form-section">
                 <div className="form-section-title">📊 Vessel Condition Profile</div>
                 <div className="form-grid form-grid-4">
@@ -975,88 +1257,158 @@ function Tracker({ userEmail, onLogout }) {
                   </div>
                 </div>
               </div>
-
-              <hr className="divider" />
-
-              {/* Fuel Particulars */}
-              <div className="form-section">
-                <div className="form-section-title">⛽ Fuel Particulars</div>
-                <div style={{ fontSize: '11px', color: '#9CA3AF', marginBottom: '12px' }}>
-                  Enter costs for fuels used. Leave blank if not applicable.
-                </div>
-                <div className="form-grid form-grid-3">
-                  <div className="form-group">
-                    <label className="form-label">Diesel/Gas Oil (USD/MT) <span className="req">*</span></label>
-                    <input
-                      type="number"
-                      name="costDO"
-                      value={formData.costDO}
-                      onChange={handleFormChange}
-                      placeholder="876"
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">LFO (USD/MT) <span className="req">*</span></label>
-                    <input
-                      type="number"
-                      name="costLFO"
-                      value={formData.costLFO}
-                      onChange={handleFormChange}
-                      placeholder="580"
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">HFO (USD/MT) <span className="req">*</span></label>
-                    <input
-                      type="number"
-                      name="costHFO"
-                      value={formData.costHFO}
-                      onChange={handleFormChange}
-                      placeholder="499"
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">LPG Propane (USD/MT)</label>
-                    <input
-                      type="number"
-                      name="costLPGP"
-                      value={formData.costLPGP}
-                      onChange={handleFormChange}
-                      placeholder="—"
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">LPG Butane (USD/MT)</label>
-                    <input
-                      type="number"
-                      name="costLPGB"
-                      value={formData.costLPGB}
-                      onChange={handleFormChange}
-                      placeholder="—"
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">LNG (USD/MT)</label>
-                    <input
-                      type="number"
-                      name="costLNG"
-                      value={formData.costLNG}
-                      onChange={handleFormChange}
-                      placeholder="—"
-                      className="form-input"
-                    />
-                  </div>
-                </div>
               </div>
 
-              <hr className="divider" />
+              {/* Fuel Particulars */}
+              <div className="onboard-card">
+              <div className="form-section">
+  <div className="form-section-title">
+    ⛽ Fuel Particulars
+  </div>
+
+  {machines.map((machine, machineIndex) => (
+
+    <div className="fuel-machine-card" key={machineIndex}>
+
+      <div className="fuel-machine-header">
+
+        {machineIndex < 2 ? (
+
+          <h4>{machine.machineName}</h4>
+
+        ) : (
+
+          <input
+            className="fuel-machine-name-input"
+            value={machine.machineName}
+            placeholder="Machine name (e.g. Boiler)"
+            onChange={(e) =>
+              updateMachineName(machineIndex, e.target.value)
+            }
+          />
+
+        )}
+
+        <div>
+
+          <button
+            type="button"
+            className="btn-add-fuel"
+            onClick={() => addFuel(machineIndex)}
+          >
+            + Add fuel
+          </button>
+
+          {machineIndex >= 2 && (
+            <button
+              type="button"
+              className="btn-remove-machine"
+              onClick={() => removeMachine(machineIndex)}
+            >
+              🗑
+            </button>
+          )}
+
+        </div>
+
+      </div>
+
+      <div className="fuel-col-labels">
+        <span>Fuel name</span>
+        <span>Consumption (MT)</span>
+        <span>Price (USD/MT)</span>
+        <span></span>
+      </div>
+
+      {machine.fuels.map((fuel, fuelIndex) => (
+
+        <div
+          className="fuel-row"
+          key={fuelIndex}
+        >
+
+      <Select
+                      value={fuel.fuel_name}
+                      placeholder="Select fuel"
+                      
+                      listHeight={280}
+                      virtual={false}
+                      getPopupContainer={() => document.body}
+                      onChange={(value) => updateFuel(fuel.id, 'fuel_name', value)}
+                    >
+                      <Option value="HFO">HFO</Option>
+                      <Option value="VLSFO">VLSFO</Option>
+                      <Option value="ULSFO">ULSFO</Option>
+                      <Option value="LFO">LFO</Option>
+                      <Option value="MDO">MDO</Option>
+                      <Option value="LPG-AVERAGE">LPG-AVERAGE</Option>
+                      <Option value="LNG-BOILER">LNG-BOILER</Option>
+                      <Option value="LNG-OTHERS">LNG-OTHERS</Option>
+                      <Option value="LNG-AE">LNG-AE</Option>
+                      <Option value="LNG-ME">LNG-ME</Option>
+                      <Option value="LPG-BUTANE">LPG-BUTANE</Option>
+                      <Option value="LPG-PROPANE">LPG-PROPANE</Option>
+                      <Option value="METHANOL">METHANOL</Option>
+                      <Option value="ETHANOL">ETHANOL</Option>
+                    </Select>
+
+          <input
+            placeholder="0.0"
+            value={fuel.consumption}
+            onChange={(e) =>
+              updateFuel(
+                machineIndex,
+                fuelIndex,
+                "consumption",
+                e.target.value
+              )
+            }
+          />
+
+          <input
+            placeholder="0"
+            value={fuel.price}
+            onChange={(e) =>
+              updateFuel(
+                machineIndex,
+                fuelIndex,
+                "price",
+                e.target.value
+              )
+            }
+          />
+
+          <button
+            type="button"
+            className="fuel-row-delete"
+            onClick={() =>
+              removeFuel(machineIndex, fuelIndex)
+            }
+          >
+            🗑
+          </button>
+
+        </div>
+
+      ))}
+
+    </div>
+
+  ))}
+
+  <button
+    type="button"
+    className="btn-add-machine"
+    onClick={addMachine}
+  >
+    + Add machine
+  </button>
+
+</div>
+              </div>
 
               {/* FEUM Penalty */}
+              <div className="onboard-card">
               <div className="form-section">
                 <div className="form-section-title">⚠️ FEUM Penalty</div>
                 <div className="form-grid form-grid-2">
@@ -1089,6 +1441,90 @@ function Tracker({ userEmail, onLogout }) {
                   </div>
                 </div>
               </div>
+              </div>
+
+              <div className="onboard-card">
+
+  <div className="onboard-title">
+    🍃 ESD Measures
+    <span className="selected-badge">
+      {selectedEsds.length} Selected
+    </span>
+  </div>
+
+  <div className="esd-col-labels">
+    <span>Measure</span>
+    <span>Efficiency gain (%)</span>
+    <span>Cost (USD)</span>
+  </div>
+
+{Object.entries(groupedEsds).map(([category, measures]) => (
+
+  <div key={category} style={{ marginBottom: 20 }}>
+
+    <Select
+      style={{ width: "100%" }}
+      placeholder={category}
+      onSelect={(value) => toggleEsd(value)}
+    >
+      {measures.map((item) => (
+        <Option
+          key={item.id}
+          value={item.id}
+          disabled={selectedEsds.includes(item.id)}
+        >
+          {item.name}
+        </Option>
+      ))}
+    </Select>
+
+    {measures
+      .filter(item => selectedEsds.includes(item.id))
+      .map(item => (
+
+        <div
+          key={item.id}
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: 10,
+            padding: "12px",
+            border: "1px solid #D9E7FF",
+            borderRadius: 8,
+            background: "#EAF3FF"
+          }}
+        >
+
+          <span style={{ flex: 1 }}>
+            {item.name}
+          </span>
+
+          <input
+            value={item.saving}
+            disabled
+            style={{
+              width: 90,
+              marginRight: 10
+            }}
+          />
+
+          <input
+            value={item.capex}
+            disabled
+            style={{
+              width: 120
+            }}
+          />
+
+        </div>
+
+      ))}
+
+  </div>
+
+))}
+</div>
 
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={closeModal}>
