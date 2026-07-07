@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {Select, Input} from "antd";
+import { Select, Input } from "antd";
 
 import {
   BarChart,
@@ -75,31 +75,31 @@ function Tracker({ userEmail, onLogout }) {
   const [vesselsLoading, setVesselsLoading] = useState(true);
   const [vesselsError, setVesselsError] = useState(null);
 
- useEffect(() => {
- 
-
-  loadVessels();
-}, []);
+  useEffect(() => {
 
 
-   
-const createFuel = () => ({
-  fuelName: "",
-  consumption: "",
-  price: ""
-});
+    loadVessels();
+  }, []);
 
-const createMachine = (name = "") => ({
-  machineName: name,
-  fuels: [createFuel()]
-});
 
-const [machines, setMachines] = useState([
-  createMachine("Main engine"),
-  createMachine("Auxiliary engine")
-]);
 
-const [formData, setFormData] = useState({
+  const createFuel = () => ({
+    fuelName: "",
+    consumption: "",
+    price: ""
+  });
+
+  const createMachine = (name = "") => ({
+    machineName: name,
+    fuels: [createFuel()]
+  });
+
+  const [machines, setMachines] = useState([
+    createMachine("Main engine"),
+    createMachine("Auxiliary engine")
+  ]);
+
+  const [formData, setFormData] = useState({
     month: '',
     year: new Date().getFullYear(),
     dockMonth: '',
@@ -166,13 +166,13 @@ const [formData, setFormData] = useState({
   };
 
 
-    const toggleESD = (id) => {
+  const toggleESD = (id) => {
     setSelectedEsds(prev =>
-        prev.includes(id)
-            ? prev.filter(item => item !== id)
-            : [...prev, id]
+      prev.includes(id)
+        ? prev.filter(item => item !== id)
+        : [...prev, id]
     );
-};
+  };
 
 
   const closeModal = () => {
@@ -202,212 +202,212 @@ const [formData, setFormData] = useState({
   };
 
   const addMachine = () => {
-  setMachines(prev => [
-    ...prev,
-    createMachine("")
-  ]);
-};
+    setMachines(prev => [
+      ...prev,
+      createMachine("")
+    ]);
+  };
 
-const removeMachine = (machineIndex) => {
-  if (machineIndex < 2) return; // Don't delete default machines
+  const removeMachine = (machineIndex) => {
+    if (machineIndex < 2) return; // Don't delete default machines
 
-  setMachines(prev =>
-    prev.filter((_, index) => index !== machineIndex)
-  );
-};
+    setMachines(prev =>
+      prev.filter((_, index) => index !== machineIndex)
+    );
+  };
 
-const addFuel = (machineIndex) => {
-  setMachines(prev =>
-    prev.map((machine, index) =>
-      index === machineIndex
-        ? {
+  const addFuel = (machineIndex) => {
+    setMachines(prev =>
+      prev.map((machine, index) =>
+        index === machineIndex
+          ? {
             ...machine,
             fuels: [...machine.fuels, createFuel()]
           }
-        : machine
-    )
-  );
-};
+          : machine
+      )
+    );
+  };
 
-const removeFuel = (machineIndex, fuelIndex) => {
-  setMachines(prev =>
-    prev.map((machine, index) => {
-      if (index !== machineIndex) return machine;
+  const removeFuel = (machineIndex, fuelIndex) => {
+    setMachines(prev =>
+      prev.map((machine, index) => {
+        if (index !== machineIndex) return machine;
 
-      if (machine.fuels.length === 1) {
-        return machine;
-      }
+        if (machine.fuels.length === 1) {
+          return machine;
+        }
 
-      return {
-        ...machine,
-        fuels: machine.fuels.filter((_, i) => i !== fuelIndex)
-      };
-    })
-  );
-};
+        return {
+          ...machine,
+          fuels: machine.fuels.filter((_, i) => i !== fuelIndex)
+        };
+      })
+    );
+  };
 
-const updateMachineName = (machineIndex, value) => {
-  setMachines(prev =>
-    prev.map((machine, index) =>
-      index === machineIndex
-        ? { ...machine, machineName: value }
-        : machine
-    )
-  );
-};
+  const updateMachineName = (machineIndex, value) => {
+    setMachines(prev =>
+      prev.map((machine, index) =>
+        index === machineIndex
+          ? { ...machine, machineName: value }
+          : machine
+      )
+    );
+  };
 
-const updateFuel = (
-  machineIndex,
-  fuelIndex,
-  field,
-  value
-) => {
-  setMachines(prev =>
-    prev.map((machine, index) => {
-      if (index !== machineIndex) return machine;
+  const updateFuel = (
+    machineIndex,
+    fuelIndex,
+    field,
+    value
+  ) => {
+    setMachines(prev =>
+      prev.map((machine, index) => {
+        if (index !== machineIndex) return machine;
 
-      return {
-        ...machine,
-        fuels: machine.fuels.map((fuel, i) =>
-          i === fuelIndex
-            ? {
+        return {
+          ...machine,
+          fuels: machine.fuels.map((fuel, i) =>
+            i === fuelIndex
+              ? {
                 ...fuel,
                 [field]: value
               }
-            : fuel
-        )
-      };
-    })
-  );
-};
-
-
-const loadVessels = async () => {
-   
-  setVesselsLoading(true);
-  setVesselsError(null);
-
-  try {
-
-    const result = await vesselAPI.getAll();
-
-    
-    if (!result.success) {
-      setVesselsError(result.error);
-      return;
-    }
-
-   const vesselList =
-  result.data?.data?.vessels ||
-  result.data?.vessels ||
-  result.data?.results ||
-  [];
-
-   
-
-    setVessels(
-      vesselList.map((item, index) =>
-        mapApiVesselToLocal(item, index)
-      )
+              : fuel
+          )
+        };
+      })
     );
-
-  } catch (err) {
-
-    console.error("LOAD ERROR:", err);
-
-  } finally {
-
-    setVesselsLoading(false);
-
-  }
-
-};
-
-const saveVessel = async () => {
-
-  if (!formData.vesselName || !formData.owner || !formData.imoNumber) {
-    alert("Please fill in required fields");
-    return;
-  }
-
-  const selectedEsdObjects = selectedEsds
-    .map(id => ESD_LIBRARY.find(esd => esd.id === id))
-    .filter(Boolean);
-
-  const payload = {
-
-    vessel: {
-      name_of_owner: formData.owner,
-      vessel_name: formData.vesselName,
-      vessel_type: (formData.vesselType || "")
-        .toLowerCase()
-        .replace(/\s+/g, "_"),
-
-      build_year: parseInt(formData.buildYear, 10) || 0,
-      flag: formData.flag,
-      classification_society: formData.classificationSociety,
-      imo_number: formData.imoNumber,
-      gross_tonnage: parseFloat(formData.grossTonnage) || 0,
-      dead_weight: parseFloat(formData.deadWeight) || 0,
-    },
-
-    voyage_meta: {
-      analysis_month: parseInt(formData.month, 10) || 0,
-      analysis_year: parseInt(formData.year, 10) || 0,
-      docking_month: parseInt(formData.dockMonth, 10) || 0,
-      sailing_days_per_year: parseInt(formData.sailingDays, 10) || 0,
-      non_steaming_days_per_year:
-        parseInt(formData.nonSteamingDays, 10) || 0,
-      eu_voyages_percent: parseFloat(formData.euPct) || 0,
-      eua_cost_usd: parseFloat(formData.euaCost) || 0,
-    },
-
-    machines: machines.map(machine => ({
-      machine_name: machine.machineName,
-
-      fuel_particulars: machine.fuels.map(fuel => ({
-        fuel_name: fuel.fuelName,
-        consumption_mt: parseFloat(fuel.consumption) || 0,
-        fuel_price_usd_per_mt: parseFloat(fuel.price) || 0,
-      })),
-    })),
-
-    esd_measures: selectedEsdObjects.map(esd => ({
-      category: esd.category.toLowerCase(),
-      name: esd.name,
-      efficiency_gain_percent: esd.saving,
-      cost_usd: esd.capex,
-    })),
   };
 
 
-  try {
+  const loadVessels = async () => {
 
-    const response = await onboardingAPI.onboardVessel(payload);
+    setVesselsLoading(true);
+    setVesselsError(null);
+
+    try {
+
+      const result = await vesselAPI.getAll();
 
 
-    if (!response.success) {
-      alert(response.error || "Failed to onboard vessel");
+      if (!result.success) {
+        setVesselsError(result.error);
+        return;
+      }
+
+      const vesselList =
+        result.data?.data?.vessels ||
+        result.data?.vessels ||
+        result.data?.results ||
+        [];
+
+
+
+      setVessels(
+        vesselList.map((item, index) =>
+          mapApiVesselToLocal(item, index)
+        )
+      );
+
+    } catch (err) {
+
+      console.error("LOAD ERROR:", err);
+
+    } finally {
+
+      setVesselsLoading(false);
+
+    }
+
+  };
+
+  const saveVessel = async () => {
+
+    if (!formData.vesselName || !formData.owner || !formData.imoNumber) {
+      alert("Please fill in required fields");
       return;
     }
 
+    const selectedEsdObjects = selectedEsds
+      .map(id => ESD_LIBRARY.find(esd => esd.id === id))
+      .filter(Boolean);
 
-await loadVessels();
+    const payload = {
 
-closeModal();
-  } catch (error) {
+      vessel: {
+        name_of_owner: formData.owner,
+        vessel_name: formData.vesselName,
+        vessel_type: (formData.vesselType || "")
+          .toLowerCase()
+          .replace(/\s+/g, "_"),
 
-    console.error("Onboard Vessel Error:", error);
+        build_year: parseInt(formData.buildYear, 10) || 0,
+        flag: formData.flag,
+        classification_society: formData.classificationSociety,
+        imo_number: formData.imoNumber,
+        gross_tonnage: parseFloat(formData.grossTonnage) || 0,
+        dead_weight: parseFloat(formData.deadWeight) || 0,
+      },
 
-    alert(
-      error.response?.data?.detail ||
-      error.response?.data?.message ||
-      error.message ||
-      "Something went wrong."
-    );
+      voyage_meta: {
+        analysis_month: parseInt(formData.month, 10) || 0,
+        analysis_year: parseInt(formData.year, 10) || 0,
+        docking_month: parseInt(formData.dockMonth, 10) || 0,
+        sailing_days_per_year: parseInt(formData.sailingDays, 10) || 0,
+        non_steaming_days_per_year:
+          parseInt(formData.nonSteamingDays, 10) || 0,
+        eu_voyages_percent: parseFloat(formData.euPct) || 0,
+        eua_cost_usd: parseFloat(formData.euaCost) || 0,
+      },
 
-  }
-};
+      machines: machines.map(machine => ({
+        machine_name: machine.machineName,
+
+        fuel_particulars: machine.fuels.map(fuel => ({
+          fuel_name: fuel.fuelName,
+          consumption_mt: parseFloat(fuel.consumption) || 0,
+          fuel_price_usd_per_mt: parseFloat(fuel.price) || 0,
+        })),
+      })),
+
+      esd_measures: selectedEsdObjects.map(esd => ({
+        category: esd.category.toLowerCase(),
+        name: esd.name,
+        efficiency_gain_percent: esd.saving,
+        cost_usd: esd.capex,
+      })),
+    };
+
+
+    try {
+
+      const response = await onboardingAPI.onboardVessel(payload);
+
+
+      if (!response.success) {
+        alert(response.error || "Failed to onboard vessel");
+        return;
+      }
+
+
+      await loadVessels();
+
+      closeModal();
+    } catch (error) {
+
+      console.error("Onboard Vessel Error:", error);
+
+      alert(
+        error.response?.data?.detail ||
+        error.response?.data?.message ||
+        error.message ||
+        "Something went wrong."
+      );
+
+    }
+  };
 
   const deleteVessel = (vesselId) => {
     if (window.confirm('Are you sure you want to delete this vessel?')) {
@@ -465,12 +465,28 @@ closeModal();
     return colors[category] || '#9CA3AF';
   };
 
-  const toggleEsd = (esdId) => {
-    setSelectedEsds(prev => 
-      prev.includes(esdId) 
-        ? prev.filter(id => id !== esdId)
-        : [...prev, esdId]
-    );
+  const toggleEsd = (id) => {
+
+    const exists = selectedEsds.find(esd => esd.id === id);
+
+    if (exists) {
+      setSelectedEsds(prev =>
+        prev.filter(esd => esd.id !== id)
+      );
+      return;
+    }
+
+    const selected = ESD_LIBRARY.find(esd => esd.id === id);
+
+    setSelectedEsds(prev => [
+      ...prev,
+      {
+        ...selected,
+        efficiency_gain_percent: selected.saving,
+        cost_usd: selected.capex,
+      }
+    ]);
+
   };
 
   const removeSelectedEsd = (esdId) => {
@@ -478,8 +494,8 @@ closeModal();
   };
 
   const getSimulatingVessel = () => vessels.find(v => v.id === simulatingId);
-  
-  const selectedEsdObjects = selectedEsds.map(id => 
+
+  const selectedEsdObjects = selectedEsds.map(id =>
     ESD_LIBRARY.find(e => e.id === id)
   ).filter(Boolean);
 
@@ -494,12 +510,12 @@ closeModal();
   const accumulatedSavings = annualValue * 2.5;
   const savingsPV = annualValue * 8;
 
- const investmentData = [
-  { name: 'Total Cost', value: totalCapex },
-  { name: 'Accum. Savings', value: -accumulatedSavings },
-  { name: 'NPV', value: Math.max(npv, 0) },
-  { name: 'Savings PV', value: savingsPV },
-];
+  const investmentData = [
+    { name: 'Total Cost', value: totalCapex },
+    { name: 'Accum. Savings', value: -accumulatedSavings },
+    { name: 'NPV', value: Math.max(npv, 0) },
+    { name: 'Savings PV', value: savingsPV },
+  ];
 
   const cashFlowData = Array.from({ length: 13 }, (_, idx) => {
     const year = 2025 + idx;
@@ -518,31 +534,31 @@ closeModal();
     { year: 2030, savings: annualValue, euSavings: annualValue * 0.35 },
     { year: 2031, savings: annualValue, euSavings: annualValue * 0.4 },
     { year: 2032, savings: annualValue, euSavings: annualValue * 0.4 },
-   
+
   ];
 
   const CATEGORY_NAMES = {
-  hull: "Hydrodynamic Upgrades",
-  propulsion: "Hydrodynamic Upgrades",
+    hull: "Hydrodynamic Upgrades",
+    propulsion: "Hydrodynamic Upgrades",
 
-  engine: "Main Engine Upgrades",
+    engine: "Main Engine Upgrades",
 
-  auxiliary: "Electrical Upgrades",
+    auxiliary: "Electrical Upgrades",
 
-  operations: "Thermodynamic Upgrades",
-};
+    operations: "Thermodynamic Upgrades",
+  };
 
- const groupedEsds = {};
+  const groupedEsds = {};
 
-ESD_LIBRARY.forEach((esd) => {
-  const key = CATEGORY_NAMES[esd.category.toLowerCase()] || esd.category;
+  ESD_LIBRARY.forEach((esd) => {
+    const key = CATEGORY_NAMES[esd.category.toLowerCase()] || esd.category;
 
-  if (!groupedEsds[key]) {
-    groupedEsds[key] = [];
-  }
+    if (!groupedEsds[key]) {
+      groupedEsds[key] = [];
+    }
 
-  groupedEsds[key].push(esd);
-});
+    groupedEsds[key].push(esd);
+  });
 
   return (
     <div className="tracker-wrapper">
@@ -550,11 +566,11 @@ ESD_LIBRARY.forEach((esd) => {
       <nav className="nav">
         <a href="#" className="nav-brand">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-      <rect width="22" height="22" rx="5" fill="#1D9E75"/>
-      <path d="M4 13 Q11 8 18 13" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-      <path d="M4 13 L6 17 L16 17 L18 13" stroke="white" stroke-width="1.2" fill="rgba(255,255,255,.15)" stroke-linejoin="round"/>
-      <ellipse cx="6" cy="15.5" rx="1.5" ry="1.5" fill="white" opacity=".6"/>
-    </svg>
+            <rect width="22" height="22" rx="5" fill="#1D9E75" />
+            <path d="M4 13 Q11 8 18 13" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" />
+            <path d="M4 13 L6 17 L16 17 L18 13" stroke="white" stroke-width="1.2" fill="rgba(255,255,255,.15)" stroke-linejoin="round" />
+            <ellipse cx="6" cy="15.5" rx="1.5" ry="1.5" fill="white" opacity=".6" />
+          </svg>
           <span>Azolla ESD Platform</span>
           <span className="nav-badge">Decarbonisation Suite</span>
         </a>
@@ -668,19 +684,19 @@ ESD_LIBRARY.forEach((esd) => {
                             </td>
                             <td>
                               <div style={{ display: 'flex', gap: '4px' }}>
-                                <button 
+                                <button
                                   className="btn btn-secondary btn-sm"
                                   onClick={() => openOnboardModal(vessel.id)}
                                 >
                                   ✏️ Edit
                                 </button>
-                                <button 
+                                <button
                                   className="btn btn-primary btn-sm"
                                   onClick={() => openSimulator(vessel.id)}
                                 >
                                   ⚙️ Simulate
                                 </button>
-                                <button 
+                                <button
                                   className="btn btn-danger btn-sm"
                                   onClick={() => deleteVessel(vessel.id)}
                                 >
@@ -718,22 +734,22 @@ ESD_LIBRARY.forEach((esd) => {
             </div>
 
             <div style={{
-  marginBottom:'12px'
-}}>
-  <span style={{
-     fontSize:'11px',
-     color:'#999'
-  }}>
-     VESSEL:
-  </span>
+              marginBottom: '12px'
+            }}>
+              <span style={{
+                fontSize: '11px',
+                color: '#999'
+              }}>
+                VESSEL:
+              </span>
 
-  <span className="badge badge-green">
-     🚢 Tenjun 9343390
-  </span>
-</div>
+              <span className="badge badge-green">
+                🚢 Tenjun 9343390
+              </span>
+            </div>
 
-<div className="simulator-layout">              {/* LEFT: ESD Library */}
-<div className="card esd-library">                <div className="card-hd"><span className="card-title">ESD Library</span></div>
+            <div className="simulator-layout">              {/* LEFT: ESD Library */}
+              <div className="card esd-library">                <div className="card-hd"><span className="card-title">ESD Library</span></div>
                 <div>
                   {ESD_LIBRARY.reduce((acc, esd) => {
                     const catIdx = acc.findIndex(g => g.category === esd.category);
@@ -751,21 +767,21 @@ ESD_LIBRARY.forEach((esd) => {
                       {group.items.map((esd) => {
                         const isSelected = selectedEsds.includes(esd.id);
                         return (
-                        <label key={esd.id} style={{ display: 'flex', alignItems: 'flex-start', padding: '8px 12px', borderBottom: '0.5px solid #E5E7EB', cursor: 'pointer', gap: '6px', backgroundColor: isSelected ? '#E8F7F2' : '#FFFFFF' }}>
-                          <input
-                            type="checkbox"
-                            className="esd-checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleEsd(esd.id)}
-                            style={{ marginTop: '2px'  }}
-                          />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: '500', fontSize: '11px' }}>{esd.name}</div>
-                            <div style={{ fontSize: '9px', color: '#9CA3AF', marginTop: '2px' }}>
-                              +{esd.saving}% · ${(esd.capex / 1000).toFixed(0)}K
+                          <label key={esd.id} style={{ display: 'flex', alignItems: 'flex-start', padding: '8px 12px', borderBottom: '0.5px solid #E5E7EB', cursor: 'pointer', gap: '6px', backgroundColor: isSelected ? '#E8F7F2' : '#FFFFFF' }}>
+                            <input
+                              type="checkbox"
+                              className="esd-checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleEsd(esd.id)}
+                              style={{ marginTop: '2px' }}
+                            />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: '500', fontSize: '11px' }}>{esd.name}</div>
+                              <div style={{ fontSize: '9px', color: '#9CA3AF', marginTop: '2px' }}>
+                                +{esd.saving}% · ${(esd.capex / 1000).toFixed(0)}K
+                              </div>
                             </div>
-                          </div>
-                        </label>
+                          </label>
                         );
                       })}
                     </div>
@@ -774,8 +790,8 @@ ESD_LIBRARY.forEach((esd) => {
               </div>
 
               {/* CENTER: Charts & Content */}
-{/* CENTER: Charts & Content */}
-<div className="simulator-center">                {/* Selected ESDs */}
+              {/* CENTER: Charts & Content */}
+              <div className="simulator-center">                {/* Selected ESDs */}
                 <div className="card">
                   <div className="card-body" style={{ padding: '12px' }}>
                     <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', color: '#1A1A1A' }}>
@@ -831,153 +847,153 @@ ESD_LIBRARY.forEach((esd) => {
 
                 <div className="chart-row">
 
-  <div className="card chart-card">
+                  <div className="card chart-card">
 
-    <div className="card-hd">
-      <span className="card-title">
-        Investment Overview
-      </span>
-    </div>
+                    <div className="card-hd">
+                      <span className="card-title">
+                        Investment Overview
+                      </span>
+                    </div>
 
-    <div className="card-body">
+                    <div className="card-body">
 
-<ResponsiveContainer width="100%" height={280}>
-  <BarChart data={investmentData}>
-    <CartesianGrid stroke="#E5E7EB" strokeOpacity={0.6} vertical={false} />
-    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-    <YAxis tickFormatter={formatMillions} tick={{ fontSize: 11 }} />
-    <Tooltip formatter={(value) => formatCurrencyShort(value)} />
-    <Bar dataKey="value" radius={[3, 3, 0, 0]}>
-      {investmentData.map((entry, index) => (
-        <Cell
-          key={index}
-          fill={entry.value < 0 ? "#e0746acb" : "#216ad8bb"}
-        />
-      ))}
-    </Bar>
-  </BarChart>
-</ResponsiveContainer>
-    </div>
+                      <ResponsiveContainer width="100%" height={280}>
+                        <BarChart data={investmentData}>
+                          <CartesianGrid stroke="#E5E7EB" strokeOpacity={0.6} vertical={false} />
+                          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                          <YAxis tickFormatter={formatMillions} tick={{ fontSize: 11 }} />
+                          <Tooltip formatter={(value) => formatCurrencyShort(value)} />
+                          <Bar dataKey="value" radius={[3, 3, 0, 0]}>
+                            {investmentData.map((entry, index) => (
+                              <Cell
+                                key={index}
+                                fill={entry.value < 0 ? "#e0746acb" : "#216ad8bb"}
+                              />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
 
-  </div>
-
-  <div className="card chart-card">
-
-    <div className="card-hd">
-      <span className="card-title">
-        Accumulated Cash Flow
-      </span>
-    </div>
-
-    <div className="card-body">
-
-<ResponsiveContainer width="100%" height={280}>
-  <AreaChart data={cashFlowData}>
-    <defs>
-      <linearGradient id="cashFlowFill" x1="1" y1="0" x2="0" y2="0">
-        <stop offset="0%" stopColor="#94A3B8" stopOpacity={0.12} />
-        <stop offset="100%" stopColor="#94A3B8" stopOpacity={0.32} />
-      </linearGradient>
-      <linearGradient id="cashFlowStroke" x1="1" y1="0" x2="0" y2="0">
-        <stop offset="0%" stopColor="#5A84CA" />
-        <stop offset="100%" stopColor="#216ad8bb" />
-      </linearGradient>
-    </defs>
-    <CartesianGrid stroke="#E5E7EB" strokeOpacity={0.6} vertical={false} />
-    <XAxis dataKey="year" ticks={[2025, 2028, 2031, 2034, 2037]} tick={{ fontSize: 11 }} />
-    <YAxis domain={[200000, 'auto']} tickFormatter={formatMillions} tick={{ fontSize: 11 }} />
-    <Tooltip formatter={(value) => formatCurrencyShort(value)} />
-    <Area
-      type="monotone"
-      dataKey="cashFlow"
-      stroke="url(#cashFlowStroke)"
-      strokeWidth={2}
-      fill="url(#cashFlowFill)"
-      dot={{ r: 3, fill: '#2F6ECB' }}
-      activeDot={{ r: 4 }}
-    />
-  </AreaChart>
-</ResponsiveContainer>
-    </div>
-
-  </div>
-
-</div>
-
-<div className="card opex-card">
-
-  <div className="card-hd">
-    <span className="card-title">
-      EET Yearly OpEx Savings
-    </span>
-  </div>
-
-  <div className="card-body">
-
-<ResponsiveContainer width="100%" height={320}>
-  <BarChart data={opexData}>
-    <CartesianGrid stroke="#E5E7EB" strokeOpacity={0.6} vertical={false} />
-    <XAxis dataKey="year" />
-    <YAxis />
-    <Tooltip />
-    <Legend />
-    <Bar dataKey="savings" stackId="opex" fill="#216ad8bb" name="Savings" />
-    <Bar dataKey="euSavings" stackId="opex" fill="#b1c5f1ce" name="EU Savings" />
-    
-  </BarChart>
-</ResponsiveContainer>
-  </div>
-
-</div>
-</div>
-
-             
-<div className="simulator-right"> 
-              <div className="kpi-row">
-               {/* Active ESDs */}
-                <div className="kpi-card">
-                  <div className="kpi-label">ESDs Active</div>
-                  <div className="kpi-value" style={{ color: '#1D9E75' }}>{selectedEsds.length}</div>
-                </div>
-
-                {/* Total Saving */}
-                <div className="kpi-card">
-                  <div className="kpi-label">Total Saving</div>
-                  <div className="kpi-value" style={{ color: '#1D9E75' }}>{totalSaving.toFixed(1)}%</div>
-                </div>
-
-                {/* Annual Value */}
-                <div className="kpi-card">
-                  <div className="kpi-label">Annual Value</div>
-                  <div className="kpi-value" style={{ color: '#2C6FBF' }}>
-                    ${(annualValue / 1000).toFixed(0)}K
                   </div>
-                </div>
 
-                {/* Total CAPEX */}
-                <div className="kpi-card">
-                  <div className="kpi-label">Total CAPEX</div>
-                  <div className="kpi-value" style={{ color: '#D97706' }}>
-                    ${(totalCapex / 1000).toFixed(0)}K
+                  <div className="card chart-card">
+
+                    <div className="card-hd">
+                      <span className="card-title">
+                        Accumulated Cash Flow
+                      </span>
+                    </div>
+
+                    <div className="card-body">
+
+                      <ResponsiveContainer width="100%" height={280}>
+                        <AreaChart data={cashFlowData}>
+                          <defs>
+                            <linearGradient id="cashFlowFill" x1="1" y1="0" x2="0" y2="0">
+                              <stop offset="0%" stopColor="#94A3B8" stopOpacity={0.12} />
+                              <stop offset="100%" stopColor="#94A3B8" stopOpacity={0.32} />
+                            </linearGradient>
+                            <linearGradient id="cashFlowStroke" x1="1" y1="0" x2="0" y2="0">
+                              <stop offset="0%" stopColor="#5A84CA" />
+                              <stop offset="100%" stopColor="#216ad8bb" />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid stroke="#E5E7EB" strokeOpacity={0.6} vertical={false} />
+                          <XAxis dataKey="year" ticks={[2025, 2028, 2031, 2034, 2037]} tick={{ fontSize: 11 }} />
+                          <YAxis domain={[200000, 'auto']} tickFormatter={formatMillions} tick={{ fontSize: 11 }} />
+                          <Tooltip formatter={(value) => formatCurrencyShort(value)} />
+                          <Area
+                            type="monotone"
+                            dataKey="cashFlow"
+                            stroke="url(#cashFlowStroke)"
+                            strokeWidth={2}
+                            fill="url(#cashFlowFill)"
+                            dot={{ r: 3, fill: '#2F6ECB' }}
+                            activeDot={{ r: 4 }}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+
                   </div>
+
                 </div>
 
-                {/* Payback */}
-                <div className="kpi-card">
-                  <div className="kpi-label">Payback</div>
-                  <div className="kpi-value" style={{ color: '#F59E0B' }}>{payback}y</div>
-                </div>
+                <div className="card opex-card">
 
-                {/* Free Allowance */}
-                <div className="kpi-card">
-                  <div className="kpi-label">Free Allowance</div>
-                  <div className="kpi-value" style={{ color: '#DC2626' }}>
-                    ${formatNumber(30845)}
+                  <div className="card-hd">
+                    <span className="card-title">
+                      EET Yearly OpEx Savings
+                    </span>
                   </div>
-                </div>
+
+                  <div className="card-body">
+
+                    <ResponsiveContainer width="100%" height={320}>
+                      <BarChart data={opexData}>
+                        <CartesianGrid stroke="#E5E7EB" strokeOpacity={0.6} vertical={false} />
+                        <XAxis dataKey="year" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="savings" stackId="opex" fill="#216ad8bb" name="Savings" />
+                        <Bar dataKey="euSavings" stackId="opex" fill="#b1c5f1ce" name="EU Savings" />
+
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
 
                 </div>
-                                <div className="card" style={{ padding: '12px' }}>
+              </div>
+
+
+              <div className="simulator-right">
+                <div className="kpi-row">
+                  {/* Active ESDs */}
+                  <div className="kpi-card">
+                    <div className="kpi-label">ESDs Active</div>
+                    <div className="kpi-value" style={{ color: '#1D9E75' }}>{selectedEsds.length}</div>
+                  </div>
+
+                  {/* Total Saving */}
+                  <div className="kpi-card">
+                    <div className="kpi-label">Total Saving</div>
+                    <div className="kpi-value" style={{ color: '#1D9E75' }}>{totalSaving.toFixed(1)}%</div>
+                  </div>
+
+                  {/* Annual Value */}
+                  <div className="kpi-card">
+                    <div className="kpi-label">Annual Value</div>
+                    <div className="kpi-value" style={{ color: '#2C6FBF' }}>
+                      ${(annualValue / 1000).toFixed(0)}K
+                    </div>
+                  </div>
+
+                  {/* Total CAPEX */}
+                  <div className="kpi-card">
+                    <div className="kpi-label">Total CAPEX</div>
+                    <div className="kpi-value" style={{ color: '#D97706' }}>
+                      ${(totalCapex / 1000).toFixed(0)}K
+                    </div>
+                  </div>
+
+                  {/* Payback */}
+                  <div className="kpi-card">
+                    <div className="kpi-label">Payback</div>
+                    <div className="kpi-value" style={{ color: '#F59E0B' }}>{payback}y</div>
+                  </div>
+
+                  {/* Free Allowance */}
+                  <div className="kpi-card">
+                    <div className="kpi-label">Free Allowance</div>
+                    <div className="kpi-value" style={{ color: '#DC2626' }}>
+                      ${formatNumber(30845)}
+                    </div>
+                  </div>
+
+                </div>
+                <div className="card" style={{ padding: '12px' }}>
                   <div className="kpi-label">CII Rating</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
                     <div style={{ padding: '8px 12px', border: '2px solid #DC2626', borderRadius: '6px', fontWeight: '600', fontSize: '14px', color: '#DC2626', minWidth: '50px', textAlign: 'center' }}>
@@ -1008,12 +1024,12 @@ ESD_LIBRARY.forEach((esd) => {
 
               </div>
 
-              
+
             </div>
 
-            
 
-           
+
+
           </div>
         )}
       </div>
@@ -1037,494 +1053,576 @@ ESD_LIBRARY.forEach((esd) => {
             </div>
             <div className="modal-body">
               <div className="onboard-card">
-              <div className="form-section">
-                <div className="form-section-title">📅 Analysis Period</div>
-                <div className="form-grid form-grid-3">
-                  <div className="form-group">
-                    <label className="form-label">Analysis Month <span className="req">*</span></label>
-                    <select
-                      name="month"
-                      value={formData.month}
-                      onChange={handleFormChange}
-                      className="form-input"
-                    >
-                      <option value="">Select month</option>
-                      {[...Array(12)].map((_, i) => (
-                        <option key={i + 1} value={i + 1}>{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Analysis Year <span className="req">*</span></label>
-                    <input
-                      type="number"
-                      name="year"
-                      value={formData.year}
-                      onChange={handleFormChange}
-                      className="form-input"
-                      min="2020"
-                      max="2040"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Docking Month <span className="req">*</span></label>
-                    <select
-                      name="dockMonth"
-                      value={formData.dockMonth}
-                      onChange={handleFormChange}
-                      className="form-input"
-                    >
-                      <option value="">Select month</option>
-                      {[...Array(12)].map((_, i) => (
-                        <option key={i + 1} value={i + 1}>{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}</option>
-                      ))}
-                    </select>
+                <div className="form-section">
+                  <div className="form-section-title">📅 Analysis Period</div>
+                  <div className="form-grid form-grid-3">
+                    <div className="form-group">
+                      <label className="form-label">Analysis Month <span className="req">*</span></label>
+                      <select
+                        name="month"
+                        value={formData.month}
+                        onChange={handleFormChange}
+                        className="form-input"
+                      >
+                        <option value="">Select month</option>
+                        {[...Array(12)].map((_, i) => (
+                          <option key={i + 1} value={i + 1}>{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Analysis Year <span className="req">*</span></label>
+                      <input
+                        type="number"
+                        name="year"
+                        value={formData.year}
+                        onChange={handleFormChange}
+                        className="form-input"
+                        min="2020"
+                        max="2040"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Docking Month <span className="req">*</span></label>
+                      <select
+                        name="dockMonth"
+                        value={formData.dockMonth}
+                        onChange={handleFormChange}
+                        className="form-input"
+                      >
+                        <option value="">Select month</option>
+                        {[...Array(12)].map((_, i) => (
+                          <option key={i + 1} value={i + 1}>{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>
-                      </div>
 
-                      <div className="onboard-card">
-              <div className="form-section">
-                <div className="form-section-title">🏷️ Vessel Identification</div>
-                <div className="form-grid form-grid-3">
-                  <div className="form-group">
-                    <label className="form-label">Name of Owner <span className="req">*</span></label>
-                    <input
-                      type="text"
-                      name="owner"
-                      value={formData.owner}
-                      onChange={handleFormChange}
-                      placeholder="e.g. NYK Line"
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Vessel Name <span className="req">*</span></label>
-                    <input
-                      type="text"
-                      name="vesselName"
-                      value={formData.vesselName}
-                      onChange={handleFormChange}
-                      placeholder="e.g. Tenjun"
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Vessel Type <span className="req">*</span></label>
-                    <select
-                      name="vesselType"
-                      value={formData.vesselType}
-                      onChange={handleFormChange}
-                      className="form-input"
-                    >
-                      <option value="">Select type</option>
-                      <option>Tanker</option>
-                      <option>Bulk Carrier</option>
-                      <option>Container</option>
-                      <option>General Cargo</option>
-                      <option>LNG Carrier</option>
-                      <option>RORO</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Build Year <span className="req">*</span></label>
-                    <input
-                      type="number"
-                      name="buildYear"
-                      value={formData.buildYear}
-                      onChange={handleFormChange}
-                      placeholder="2008"
-                      className="form-input"
-                      min="1960"
-                      max="2030"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Flag <span className="req">*</span></label>
-                    <input
-                      type="text"
-                      name="flag"
-                      value={formData.flag}
-                      onChange={handleFormChange}
-                      placeholder="e.g. Panama"
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Classification Society <span className="req">*</span></label>
-                    <select
-                      name="classificationSociety"
-                      value={formData.classificationSociety}
-                      onChange={handleFormChange}
-                      className="form-input"
-                    >
-                      <option value="">Select</option>
-                      <option>ABS</option>
-                      <option>DNV</option>
-                      <option>Lloyds</option>
-                      <option>BV</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">IMO Number <span className="req">*</span></label>
-                    <input
-                      type="text"
-                      name="imoNumber"
-                      value={formData.imoNumber}
-                      onChange={handleFormChange}
-                      placeholder="9343390"
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Gross Tonnage (GT) <span className="req">*</span></label>
-                    <input
-                      type="number"
-                      name="grossTonnage"
-                      value={formData.grossTonnage}
-                      onChange={handleFormChange}
-                      placeholder="159927"
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Dead Weight (DWT) <span className="req">*</span></label>
-                    <input
-                      type="number"
-                      name="deadWeight"
-                      value={formData.deadWeight}
-                      onChange={handleFormChange}
-                      placeholder="302107"
-                      className="form-input"
-                    />
+              <div className="onboard-card">
+                <div className="form-section">
+                  <div className="form-section-title">🏷️ Vessel Identification</div>
+                  <div className="form-grid form-grid-3">
+                    <div className="form-group">
+                      <label className="form-label">Name of Owner <span className="req">*</span></label>
+                      <input
+                        type="text"
+                        name="owner"
+                        value={formData.owner}
+                        onChange={handleFormChange}
+                        placeholder="e.g. NYK Line"
+                        className="form-input"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Vessel Name <span className="req">*</span></label>
+                      <input
+                        type="text"
+                        name="vesselName"
+                        value={formData.vesselName}
+                        onChange={handleFormChange}
+                        placeholder="e.g. Tenjun"
+                        className="form-input"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Vessel Type <span className="req">*</span></label>
+                      <select
+                        name="vesselType"
+                        value={formData.vesselType}
+                        onChange={handleFormChange}
+                        className="form-input"
+                      >
+                        <option value="">Select type</option>
+                        <option>Tanker</option>
+                        <option>Bulk Carrier</option>
+                        <option>Container</option>
+                        <option>General Cargo</option>
+                        <option>LNG Carrier</option>
+                        <option>RORO</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Build Year <span className="req">*</span></label>
+                      <input
+                        type="number"
+                        name="buildYear"
+                        value={formData.buildYear}
+                        onChange={handleFormChange}
+                        placeholder="2008"
+                        className="form-input"
+                        min="1960"
+                        max="2030"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Flag <span className="req">*</span></label>
+                      <input
+                        type="text"
+                        name="flag"
+                        value={formData.flag}
+                        onChange={handleFormChange}
+                        placeholder="e.g. Panama"
+                        className="form-input"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Classification Society <span className="req">*</span></label>
+                      <select
+                        name="classificationSociety"
+                        value={formData.classificationSociety}
+                        onChange={handleFormChange}
+                        className="form-input"
+                      >
+                        <option value="">Select</option>
+                        <option>ABS</option>
+                        <option>DNV</option>
+                        <option>Lloyds</option>
+                        <option>BV</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">IMO Number <span className="req">*</span></label>
+                      <input
+                        type="text"
+                        name="imoNumber"
+                        value={formData.imoNumber}
+                        onChange={handleFormChange}
+                        placeholder="9343390"
+                        className="form-input"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Gross Tonnage (GT) <span className="req">*</span></label>
+                      <input
+                        type="number"
+                        name="grossTonnage"
+                        value={formData.grossTonnage}
+                        onChange={handleFormChange}
+                        placeholder="159927"
+                        className="form-input"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Dead Weight (DWT) <span className="req">*</span></label>
+                      <input
+                        type="number"
+                        name="deadWeight"
+                        value={formData.deadWeight}
+                        onChange={handleFormChange}
+                        placeholder="302107"
+                        className="form-input"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
               </div>
 
               {/* Vessel Condition Profile */}
               <div className="onboard-card">
-              <div className="form-section">
-                <div className="form-section-title">📊 Vessel Condition Profile</div>
-                <div className="form-grid form-grid-4">
-                  <div className="form-group">
-                    <label className="form-label">Sailing Days/Year <span className="req">*</span></label>
-                    <input
-                      type="number"
-                      name="sailingDays"
-                      value={formData.sailingDays}
-                      onChange={handleFormChange}
-                      placeholder="207"
-                      className="form-input"
-                    />
-                    <div className="form-hint">Total operating days at sea</div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Non-steaming Days/Year <span className="req">*</span></label>
-                    <input
-                      type="number"
-                      name="nonSteamingDays"
-                      value={formData.nonSteamingDays}
-                      onChange={handleFormChange}
-                      placeholder="158"
-                      className="form-input"
-                    />
-                    <div className="form-hint">At port / idle</div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">% EU Voyages <span className="req">*</span></label>
-                    <input
-                      type="number"
-                      name="euPct"
-                      value={formData.euPct}
-                      onChange={handleFormChange}
-                      placeholder="10"
-                      className="form-input"
-                    />
-                    <div className="form-hint">For ETS / EUA calculation</div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Cost of 1 EUA (USD) <span className="req">*</span></label>
-                    <input
-                      type="number"
-                      name="euaCost"
-                      value={formData.euaCost}
-                      onChange={handleFormChange}
-                      placeholder="70"
-                      className="form-input"
-                    />
+                <div className="form-section">
+                  <div className="form-section-title">📊 Vessel Condition Profile</div>
+                  <div className="form-grid form-grid-4">
+                    <div className="form-group">
+                      <label className="form-label">Sailing Days/Year <span className="req">*</span></label>
+                      <input
+                        type="number"
+                        name="sailingDays"
+                        value={formData.sailingDays}
+                        onChange={handleFormChange}
+                        placeholder="207"
+                        className="form-input"
+                      />
+                      <div className="form-hint">Total operating days at sea</div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Non-steaming Days/Year <span className="req">*</span></label>
+                      <input
+                        type="number"
+                        name="nonSteamingDays"
+                        value={formData.nonSteamingDays}
+                        onChange={handleFormChange}
+                        placeholder="158"
+                        className="form-input"
+                      />
+                      <div className="form-hint">At port / idle</div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">% EU Voyages <span className="req">*</span></label>
+                      <input
+                        type="number"
+                        name="euPct"
+                        value={formData.euPct}
+                        onChange={handleFormChange}
+                        placeholder="10"
+                        className="form-input"
+                      />
+                      <div className="form-hint">For ETS / EUA calculation</div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Cost of 1 EUA (USD) <span className="req">*</span></label>
+                      <input
+                        type="number"
+                        name="euaCost"
+                        value={formData.euaCost}
+                        onChange={handleFormChange}
+                        placeholder="70"
+                        className="form-input"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
               </div>
 
               {/* Fuel Particulars */}
               <div className="onboard-card">
-              <div className="form-section">
-  <div className="form-section-title">
-    ⛽ Fuel Particulars
-  </div>
+                <div className="form-section">
+                  <div className="form-section-title">
+                    ⛽ Fuel Particulars
+                  </div>
 
-  {machines.map((machine, machineIndex) => (
+                  {machines.map((machine, machineIndex) => (
 
-    <div className="fuel-machine-card" key={machineIndex}>
+                    <div className="fuel-machine-card" key={machineIndex}>
 
-      <div className="fuel-machine-header">
+                      <div className="fuel-machine-header">
 
-        {machineIndex < 2 ? (
+                        {machineIndex < 2 ? (
 
-          <h4>{machine.machineName}</h4>
+                          <h4>{machine.machineName}</h4>
 
-        ) : (
+                        ) : (
 
-          <input
-            className="fuel-machine-name-input"
-            value={machine.machineName}
-            placeholder="Machine name (e.g. Boiler)"
-            onChange={(e) =>
-              updateMachineName(machineIndex, e.target.value)
-            }
-          />
+                          <input
+                            className="fuel-machine-name-input"
+                            value={machine.machineName}
+                            placeholder="Machine name (e.g. Boiler)"
+                            onChange={(e) =>
+                              updateMachineName(machineIndex, e.target.value)
+                            }
+                          />
 
-        )}
+                        )}
 
-        <div>
+                        <div>
 
-          <button
-            type="button"
-            className="btn-add-fuel"
-            onClick={() => addFuel(machineIndex)}
-          >
-            + Add fuel
-          </button>
+                          <button
+                            type="button"
+                            className="btn-add-fuel"
+                            onClick={() => addFuel(machineIndex)}
+                          >
+                            + Add fuel
+                          </button>
 
-          {machineIndex >= 2 && (
-            <button
-              type="button"
-              className="btn-remove-machine"
-              onClick={() => removeMachine(machineIndex)}
-            >
-              🗑
-            </button>
-          )}
+                          {machineIndex >= 2 && (
+                            <button
+                              type="button"
+                              className="btn-remove-machine"
+                              onClick={() => removeMachine(machineIndex)}
+                            >
+                              🗑
+                            </button>
+                          )}
 
-        </div>
+                        </div>
 
-      </div>
+                      </div>
 
-      <div className="fuel-col-labels">
-        <span>Fuel name</span>
-        <span>Consumption (MT)</span>
-        <span>Price (USD/MT)</span>
-        <span></span>
-      </div>
+                      <div className="fuel-col-labels">
+                        <span>Fuel name</span>
+                        <span>Consumption (MT)</span>
+                        <span>Price (USD/MT)</span>
+                        <span></span>
+                      </div>
 
-      {machine.fuels.map((fuel, fuelIndex) => (
+                      {machine.fuels.map((fuel, fuelIndex) => (
 
-        <div
-          className="fuel-row"
-          key={fuelIndex}
-        >
+                        <div
+                          className="fuel-row"
+                          key={fuelIndex}
+                        >
 
-      <Select
-                      value={fuel.fuel_name}
-                      placeholder="Select fuel"
-                      
-                      listHeight={280}
-                      virtual={false}
-                      getPopupContainer={() => document.body}
-                      onChange={(value) => updateFuel(fuel.id, 'fuel_name', value)}
-                    >
-                      <Option value="HFO">HFO</Option>
-                      <Option value="VLSFO">VLSFO</Option>
-                      <Option value="ULSFO">ULSFO</Option>
-                      <Option value="LFO">LFO</Option>
-                      <Option value="MDO">MDO</Option>
-                      <Option value="LPG-AVERAGE">LPG-AVERAGE</Option>
-                      <Option value="LNG-BOILER">LNG-BOILER</Option>
-                      <Option value="LNG-OTHERS">LNG-OTHERS</Option>
-                      <Option value="LNG-AE">LNG-AE</Option>
-                      <Option value="LNG-ME">LNG-ME</Option>
-                      <Option value="LPG-BUTANE">LPG-BUTANE</Option>
-                      <Option value="LPG-PROPANE">LPG-PROPANE</Option>
-                      <Option value="METHANOL">METHANOL</Option>
-                      <Option value="ETHANOL">ETHANOL</Option>
-                    </Select>
+                          <Select
+                            value={fuel.fuel_name}
+                            placeholder="Select fuel"
 
-          <input
-            placeholder="0.0"
-            value={fuel.consumption}
-            onChange={(e) =>
-              updateFuel(
-                machineIndex,
-                fuelIndex,
-                "consumption",
-                e.target.value
-              )
-            }
-          />
+                            listHeight={280}
+                            virtual={false}
+                            getPopupContainer={() => document.body}
+                            onChange={(value) => updateFuel(fuel.id, 'fuel_name', value)}
+                          >
+                            <Option value="HFO">HFO</Option>
+                            <Option value="VLSFO">VLSFO</Option>
+                            <Option value="ULSFO">ULSFO</Option>
+                            <Option value="LFO">LFO</Option>
+                            <Option value="MDO">MDO</Option>
+                            <Option value="LPG-AVERAGE">LPG-AVERAGE</Option>
+                            <Option value="LNG-BOILER">LNG-BOILER</Option>
+                            <Option value="LNG-OTHERS">LNG-OTHERS</Option>
+                            <Option value="LNG-AE">LNG-AE</Option>
+                            <Option value="LNG-ME">LNG-ME</Option>
+                            <Option value="LPG-BUTANE">LPG-BUTANE</Option>
+                            <Option value="LPG-PROPANE">LPG-PROPANE</Option>
+                            <Option value="METHANOL">METHANOL</Option>
+                            <Option value="ETHANOL">ETHANOL</Option>
+                          </Select>
 
-          <input
-            placeholder="0"
-            value={fuel.price}
-            onChange={(e) =>
-              updateFuel(
-                machineIndex,
-                fuelIndex,
-                "price",
-                e.target.value
-              )
-            }
-          />
+                          <input
+                            placeholder="0.0"
+                            value={fuel.consumption}
+                            onChange={(e) =>
+                              updateFuel(
+                                machineIndex,
+                                fuelIndex,
+                                "consumption",
+                                e.target.value
+                              )
+                            }
+                          />
 
-          <button
-            type="button"
-            className="fuel-row-delete"
-            onClick={() =>
-              removeFuel(machineIndex, fuelIndex)
-            }
-          >
-            🗑
-          </button>
+                          <input
+                            placeholder="0"
+                            value={fuel.price}
+                            onChange={(e) =>
+                              updateFuel(
+                                machineIndex,
+                                fuelIndex,
+                                "price",
+                                e.target.value
+                              )
+                            }
+                          />
 
-        </div>
+                          <button
+                            type="button"
+                            className="fuel-row-delete"
+                            onClick={() =>
+                              removeFuel(machineIndex, fuelIndex)
+                            }
+                          >
+                            🗑
+                          </button>
 
-      ))}
+                        </div>
 
-    </div>
+                      ))}
 
-  ))}
+                    </div>
 
-  <button
-    type="button"
-    className="btn-add-machine"
-    onClick={addMachine}
-  >
-    + Add machine
-  </button>
+                  ))}
 
-</div>
+                  <button
+                    type="button"
+                    className="btn-add-machine"
+                    onClick={addMachine}
+                  >
+                    + Add machine
+                  </button>
+
+                </div>
               </div>
 
               {/* FEUM Penalty */}
               <div className="onboard-card">
-              <div className="form-section">
-                <div className="form-section-title">⚠️ FEUM Penalty</div>
-                <div className="form-grid form-grid-2">
-                  <div className="form-group">
-                    <label className="form-label">FEUM Penalty (USD/yr) <span className="req">*</span></label>
-                    <input
-                      type="number"
-                      name="feumPenalty"
-                      value={formData.feumPenalty}
-                      onChange={handleFormChange}
-                      placeholder="83828"
-                      className="form-input"
-                    />
-                    <div className="form-hint">From FEUM Calculations sheet</div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Current CII Rating</label>
-                    <select
-                      name="ciiRating"
-                      value={formData.ciiRating}
-                      onChange={handleFormChange}
-                      className="form-input"
-                    >
-                      <option>A</option>
-                      <option>B</option>
-                      <option>C</option>
-                      <option>D</option>
-                      <option>E</option>
-                    </select>
+                <div className="form-section">
+                  <div className="form-section-title">⚠️ FEUM Penalty</div>
+                  <div className="form-grid form-grid-2">
+                    <div className="form-group">
+                      <label className="form-label">FEUM Penalty (USD/yr) <span className="req">*</span></label>
+                      <input
+                        type="number"
+                        name="feumPenalty"
+                        value={formData.feumPenalty}
+                        onChange={handleFormChange}
+                        placeholder="83828"
+                        className="form-input"
+                      />
+                      <div className="form-hint">From FEUM Calculations sheet</div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Current CII Rating</label>
+                      <select
+                        name="ciiRating"
+                        value={formData.ciiRating}
+                        onChange={handleFormChange}
+                        className="form-input"
+                      >
+                        <option>A</option>
+                        <option>B</option>
+                        <option>C</option>
+                        <option>D</option>
+                        <option>E</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-              </div>
               </div>
 
               <div className="onboard-card">
 
-  <div className="onboard-title">
-    🍃 ESD Measures
-    <span className="selected-badge">
-      {selectedEsds.length} Selected
-    </span>
-  </div>
+                <div className="onboard-title">
+                  🍃 ESD Measures
+                  <span className="selected-badge">
+                    {selectedEsds.length} Selected
+                  </span>
+                </div>
 
-  <div className="esd-col-labels">
-    <span>Measure</span>
-    <span>Efficiency gain (%)</span>
-    <span>Cost (USD)</span>
-  </div>
+                <div className="esd-col-labels">
+                  <span>Measure</span>
+                  <span>Efficiency gain (%)</span>
+                  <span>Cost (USD)</span>
+                </div>
 
-{Object.entries(groupedEsds).map(([category, measures]) => (
+                {Object.entries(groupedEsds).map(([category, measures]) => (
 
-  <div key={category} style={{ marginBottom: 20 }}>
+                  <div key={category} style={{ marginBottom: 20 }}>
+                    <details
+                      style={{
+                        border: "1px solid #D9D9D9",
+                        borderRadius: 8,
+                        padding: "10px 14px",
+                        background: "#fff"
+                      }}
+                    >
 
-    <Select
-      style={{ width: "100%" }}
-      placeholder={category}
-      onSelect={(value) => toggleEsd(value)}
+                      <summary
+                        style={{
+                          cursor: "pointer",
+                          fontWeight: 600,
+                          fontSize: 15
+                        }}
+                      >
+                        {category}
+                      </summary>
+
+                      <div
+                        style={{
+                          marginTop: 12,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 10
+                        }}
+                      >
+
+                        {measures.map(item => (
+
+                          <label
+                            key={item.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              cursor: "pointer"
+                            }}
+                          >
+
+                            <input
+                              type="checkbox"
+                              checked={selectedEsds.some(esd => esd.id === item.id)} onChange={() => toggleEsd(item.id)}
+                            />
+
+                            {item.name}
+
+                          </label>
+
+                        ))}
+
+                      </div>
+
+                    </details>
+
+                    {measures
+.filter(item =>
+  selectedEsds.some(esd => esd.id === item.id)
+)                      .map(item => (
+
+                        <div
+  key={item.id}
+  className="selected-esd-card"
+>
+
+  <div className="selected-esd-header">
+
+    <div className="selected-esd-title">
+      {item.name}
+    </div>
+
+    <button
+      className="selected-esd-remove"
+      onClick={() => toggleEsd(item.id)}
     >
-      {measures.map((item) => (
-        <Option
-          key={item.id}
-          value={item.id}
-          disabled={selectedEsds.includes(item.id)}
-        >
-          {item.name}
-        </Option>
-      ))}
-    </Select>
-
-    {measures
-      .filter(item => selectedEsds.includes(item.id))
-      .map(item => (
-
-        <div
-          key={item.id}
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginTop: 10,
-            padding: "12px",
-            border: "1px solid #D9E7FF",
-            borderRadius: 8,
-            background: "#EAF3FF"
-          }}
-        >
-
-          <span style={{ flex: 1 }}>
-            {item.name}
-          </span>
-
-          <input
-            value={item.saving}
-            disabled
-            style={{
-              width: 90,
-              marginRight: 10
-            }}
-          />
-
-          <input
-            value={item.capex}
-            disabled
-            style={{
-              width: 120
-            }}
-          />
-
-        </div>
-
-      ))}
+      ✕
+    </button>
 
   </div>
 
-))}
+  <div className="selected-esd-fields">
+
+    <div className="selected-esd-field">
+
+      <label>Efficiency Gain (%)</label>
+
+      <input
+        value={
+          selectedEsds.find(esd => esd.id === item.id)
+            ?.efficiency_gain_percent || ""
+        }
+        onChange={(e) => {
+
+          setSelectedEsds(prev =>
+            prev.map(esd =>
+              esd.id === item.id
+                ? {
+                    ...esd,
+                    efficiency_gain_percent: e.target.value
+                  }
+                : esd
+            )
+          );
+
+        }}
+      />
+
+    </div>
+
+    <div className="selected-esd-field">
+
+      <label>Cost (USD)</label>
+
+      <input
+        value={
+          selectedEsds.find(esd => esd.id === item.id)
+            ?.cost_usd || ""
+        }
+        onChange={(e) => {
+
+          setSelectedEsds(prev =>
+            prev.map(esd =>
+              esd.id === item.id
+                ? {
+                    ...esd,
+                    cost_usd: e.target.value
+                  }
+                : esd
+            )
+          );
+
+        }}
+      />
+
+    </div>
+
+  </div>
+
 </div>
+
+                      ))}
+
+                  </div>
+
+                ))}
+              </div>
 
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={closeModal}>
