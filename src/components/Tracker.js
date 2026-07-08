@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Select, Input } from "antd";
+import { Select, Input, Collapse } from "antd";
 
 import {
   BarChart,
@@ -74,6 +74,7 @@ function Tracker({ userEmail, onLogout }) {
   const [selectedEsds, setSelectedEsds] = useState([]);
   const [vesselsLoading, setVesselsLoading] = useState(true);
   const [vesselsError, setVesselsError] = useState(null);
+  const [simulationData, setSimulationData] = useState(null);
 
   useEffect(() => {
 
@@ -323,6 +324,38 @@ function Tracker({ userEmail, onLogout }) {
 
   };
 
+
+const loadSimulationData = async (vesselId) => {
+  try {
+
+    const result = await vesselAPI.getSimulationMeta(vesselId);
+
+    console.log("SIMULATION API:", result);
+
+    if (!result.success) {
+      console.log(result.error);
+      return;
+    }
+
+    const data = result.data.data;
+
+    setSimulationData(data);
+
+    // initialize selected ESDs
+    setSelectedEsds(
+      data.voyage_meta.esd_recommended.selected_measures.map((esd, index) => ({
+        id: `api-${index}`,
+        name: esd.name,
+        category: esd.category,
+        efficiency_gain_percent: esd.efficiency_gain_percent,
+        cost_usd: esd.cost_usd,
+      }))
+    );
+
+  } catch (err) {
+    console.log(err);
+  }
+};
   const saveVessel = async () => {
 
     if (!formData.vesselName || !formData.owner || !formData.imoNumber) {
@@ -372,7 +405,7 @@ function Tracker({ userEmail, onLogout }) {
         })),
       })),
 
-      esd_measures: selectedEsdObjects.map(esd => ({
+      esd_measures: selectedEsds.map(esd => ({
         category: esd.category.toLowerCase(),
         name: esd.name,
         efficiency_gain_percent: esd.saving,
@@ -415,12 +448,15 @@ function Tracker({ userEmail, onLogout }) {
     }
   };
 
-  const openSimulator = (vesselId) => {
-    setSimulatingId(vesselId);
-    setSelectedEsds([]);
-    setActiveTab('simulator');
-  };
+  const openSimulator = async (vesselId) => {
 
+    await loadSimulationData(vesselId);
+
+    setSimulatingId(vesselId);
+
+    setActiveTab("simulator");
+
+  };
   const handleExportPdf = () => {
     if (!vessel) {
       return;
@@ -500,9 +536,16 @@ function Tracker({ userEmail, onLogout }) {
   ).filter(Boolean);
 
   // Financial calculations
-  const totalCapex = selectedEsdObjects.reduce((sum, esd) => sum + (esd?.capex || 0), 0);
-  const totalSaving = selectedEsdObjects.reduce((sum, esd) => sum + (esd?.saving || 0), 0);
-  const vessel = getSimulatingVessel();
+const totalCapex =
+selectedEsds.reduce(
+(sum, esd) => sum + Number(esd.cost_usd || 0),
+0
+);
+const totalSaving =
+selectedEsds.reduce(
+(sum, esd) => sum + Number(esd.efficiency_gain_percent || 0),
+0
+);  const vessel = getSimulatingVessel();
   const annualFuel = vessel ? ((vessel.costDO || 0) + (vessel.costLFO || 0) + (vessel.costHFO || 0)) * 100 : 0;
   const annualValue = annualFuel > 0 ? (annualFuel * totalSaving / 100) : 30420;
   const payback = annualValue > 0 ? (totalCapex / annualValue).toFixed(1) : 0;
@@ -692,7 +735,10 @@ function Tracker({ userEmail, onLogout }) {
                                 </button>
                                 <button
                                   className="btn btn-primary btn-sm"
-                                  onClick={() => openSimulator(vessel.id)}
+                                  onClick={async () => {
+  await loadSimulationData(vessel.id);
+  openSimulator(vessel.id);
+}}
                                 >
                                   ⚙️ Simulate
                                 </button>
@@ -722,10 +768,10 @@ function Tracker({ userEmail, onLogout }) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ fontSize: '20px', fontWeight: '600', color: '#1A1A1A' }}>
-                  Tenjun — IMO {vessel?.imoNumber}
+                  {simulationData?.vessel?.vessel_name} — {simulationData?.vessel?.imo_number}
                 </div>
                 <span style={{ fontSize: '11px', background: '#1D9E75', color: 'white', padding: '4px 10px', borderRadius: '12px', fontWeight: '600' }}>
-                  🚢 Tenjun 9343390
+                 🚢 {simulationData?.vessel?.vessel_name}
                 </span>
               </div>
               <button className="btn btn-secondary" style={{ gap: '6px' }} onClick={handleExportPdf} type="button">
@@ -743,51 +789,479 @@ function Tracker({ userEmail, onLogout }) {
                 VESSEL:
               </span>
 
-              <span className="badge badge-green">
-                🚢 Tenjun 9343390
-              </span>
+             <span className="badge badge-green">
+    🚢 {simulationData?.vessel?.vessel_name} {simulationData?.vessel?.imo_number}
+</span>
             </div>
 
-            <div className="simulator-layout">              {/* LEFT: ESD Library */}
-              <div className="card esd-library">                <div className="card-hd"><span className="card-title">ESD Library</span></div>
-                <div>
-                  {ESD_LIBRARY.reduce((acc, esd) => {
-                    const catIdx = acc.findIndex(g => g.category === esd.category);
-                    if (catIdx === -1) {
-                      acc.push({ category: esd.category, items: [esd] });
-                    } else {
-                      acc[catIdx].items.push(esd);
-                    }
-                    return acc;
-                  }, []).map((group) => (
-                    <div key={group.category}>
-                      <div style={{ padding: '8px 12px', fontWeight: '600', fontSize: '10px', color: getCategoryColor(group.category), backgroundColor: '#f9fafb', borderTop: '1px solid #E5E7EB' }}>
-                        • {group.category}
-                      </div>
-                      {group.items.map((esd) => {
-                        const isSelected = selectedEsds.includes(esd.id);
-                        return (
-                          <label key={esd.id} style={{ display: 'flex', alignItems: 'flex-start', padding: '8px 12px', borderBottom: '0.5px solid #E5E7EB', cursor: 'pointer', gap: '6px', backgroundColor: isSelected ? '#E8F7F2' : '#FFFFFF' }}>
-                            <input
-                              type="checkbox"
-                              className="esd-checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleEsd(esd.id)}
-                              style={{ marginTop: '2px' }}
-                            />
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: '500', fontSize: '11px' }}>{esd.name}</div>
-                              <div style={{ fontSize: '9px', color: '#9CA3AF', marginTop: '2px' }}>
-                                +{esd.saving}% · ${(esd.capex / 1000).toFixed(0)}K
-                              </div>
-                            </div>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <div className="simulator-layout">             
+             <div className="card esd-library">
+
+  <Collapse
+    defaultActiveKey={["1"]}
+    ghost
+  >
+
+
+    <Collapse.Panel
+      header="ESD Library"
+      key="1"
+    >
+{Object.entries(groupedEsds).map(([category, measures]) => (
+
+  <div key={category} style={{ marginBottom: 20 }}>
+
+    <details
+      style={{
+        border: "1px solid #D9D9D9",
+        borderRadius: 8,
+        padding: "10px 14px",
+        background: "#fff"
+      }}
+    >
+
+      <summary
+        style={{
+          cursor: "pointer",
+          fontWeight: 600,
+          fontSize: 15
+        }}
+      >
+        {category}
+      </summary>
+
+      <div
+        style={{
+          marginTop: 12,
+          display: "flex",
+          flexDirection: "column",
+          gap: 10
+        }}
+      >
+
+        {measures.map(item => (
+
+          <label
+            key={item.id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              cursor: "pointer"
+            }}
+          >
+
+            <input
+              type="checkbox"
+              checked={selectedEsds.some(esd => esd.id === item.id)}
+              onChange={() => toggleEsd(item.id)}
+            />
+
+            {item.name}
+
+          </label>
+
+        ))}
+
+      </div>
+
+    </details>
+
+    {measures
+      .filter(item =>
+        selectedEsds.some(esd => esd.id === item.id)
+      )
+      .map(item => (
+
+        <div
+          key={item.id}
+          className="selected-esd-card"
+        >
+
+          <div className="selected-esd-header">
+
+            <div className="selected-esd-title">
+              {item.name}
+            </div>
+
+            <button
+              className="selected-esd-remove"
+              onClick={() => toggleEsd(item.id)}
+            >
+              ✕
+            </button>
+
+          </div>
+
+          <div className="selected-esd-fields">
+
+            <div className="selected-esd-field">
+
+              <label>Efficiency Gain (%)</label>
+
+              <input
+                value={
+                  selectedEsds.find(esd => esd.id === item.id)
+                    ?.efficiency_gain_percent || ""
+                }
+                onChange={(e) => {
+
+                  setSelectedEsds(prev =>
+                    prev.map(esd =>
+                      esd.id === item.id
+                        ? {
+                            ...esd,
+                            efficiency_gain_percent: e.target.value
+                          }
+                        : esd
+                    )
+                  );
+
+                }}
+              />
+
+            </div>
+
+            <div className="selected-esd-field">
+
+              <label>Cost (USD)</label>
+
+              <input
+                value={
+                  selectedEsds.find(esd => esd.id === item.id)
+                    ?.cost_usd || ""
+                }
+                onChange={(e) => {
+
+                  setSelectedEsds(prev =>
+                    prev.map(esd =>
+                      esd.id === item.id
+                        ? {
+                            ...esd,
+                            cost_usd: e.target.value
+                          }
+                        : esd
+                    )
+                  );
+
+                }}
+              />
+
+            </div>
+
+          </div>
+
+        </div>
+
+      ))}
+
+  </div>
+
+))}
+    </Collapse.Panel>
+
+
+    <Collapse.Panel
+      header="Vessel Information"
+      key="2"
+    >
+
+      <div className="form-grid">
+
+        <div className="form-group">
+          <label>Owner</label>
+          <input
+            value={simulationData?.vessel?.name_of_owner || ""}
+            disabled
+           
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Vessel Name</label>
+          <input
+            value={simulationData?.vessel?.vessel_name || ""}
+            disabled
+           
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Vessel Type</label>
+          <input
+            value={simulationData?.vessel?.vessel_type || ""}
+            disabled
+           
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Build Year</label>
+          <input
+            value={simulationData?.vessel?.build_year || ""}
+            disabled
+           
+          />
+        </div>
+
+        <div className="form-group">
+          <label>IMO Number</label>
+          <input
+            value={simulationData?.vessel?.imo_number || ""}
+            disabled
+          
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Flag</label>
+          <input
+            value={simulationData?.vessel?.flag || ""}
+            disabled
+           
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Gross Tonnage</label>
+          <input
+            value={simulationData?.vessel?.gross_tonnage || ""}
+            disabled
+           
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Dead Weight</label>
+          <input
+            value={simulationData?.vessel?.dead_weight || ""}
+            disabled
+          
+          />
+        </div>
+
+      </div>
+
+    </Collapse.Panel>
+
+
+
+    <Collapse.Panel
+      header="Voyage Information"
+      key="3"
+    >
+
+      <div className="form-grid">
+
+        {[
+          ["analysis_month","Analysis Month"],
+          ["analysis_year","Analysis Year"],
+          ["docking_month","Docking Month"],
+          ["sailing_days_per_year","Sailing Days"],
+          ["non_steaming_days_per_year","Non Steaming Days"],
+          ["eu_voyages_percent","EU Voyages %"],
+          ["eua_cost_usd","EUA Cost"]
+        ].map(([key,label])=>(
+
+          <div
+            key={key}
+            className="form-group"
+          >
+
+            <label>{label}</label>
+
+            <input
+              value={simulationData?.voyage_meta?.[key] || ""}
+    onChange={(e)=>
+setSimulationData(prev=>({
+  ...prev,
+  voyage_meta:{
+    ...prev.voyage_meta,
+    [key]:e.target.value
+  }
+}))
+}
+            />
+
+          </div>
+
+        ))}
+
+      </div>
+
+    </Collapse.Panel>
+
+
+    <Collapse.Panel
+      header="Machines"
+      key="4"
+    >
+
+      {simulationData?.machines?.map((machine,mIndex)=>(
+
+        <div
+          key={mIndex}
+          className="machine-card"
+        >
+
+          <h4>{machine.machine_name}</h4>
+
+          {machine.fuel_particulars.map((fuel,fIndex)=>(
+
+            <div
+              key={fIndex}
+              className="machine-row"
+            >
+
+              <input
+                value={fuel.fuel_name}
+                onChange={(e)=>{
+
+const updated=[...simulationData.machines];
+
+updated[mIndex]
+.fuel_particulars[fIndex]
+.fuel_name=e.target.value;
+
+setSimulationData(prev=>({
+...prev,
+machines:updated
+}));
+
+}}
+              />
+
+              <input
+  value={fuel.consumption_mt}
+  onChange={(e) => {
+
+    const updated = [...simulationData.machines];
+
+    updated[mIndex].fuel_particulars[fIndex].consumption_mt =
+      e.target.value;
+
+    setSimulationData(prev => ({
+      ...prev,
+      machines: updated,
+    }));
+
+  }}
+/>
+
+             <input
+    value={fuel.fuel_price_usd_per_mt}
+    onChange={(e) => {
+
+        const updated = [...simulationData.machines];
+
+        updated[mIndex]
+            .fuel_particulars[fIndex]
+            .fuel_price_usd_per_mt = e.target.value;
+
+        setSimulationData(prev => ({
+            ...prev,
+            machines: updated,
+        }));
+
+    }}
+/>
+
+            </div>
+
+          ))}
+
+        </div>
+
+      ))}
+
+    </Collapse.Panel>
+
+
+    <Collapse.Panel
+      header="Recommended Measures"
+      key="5"
+    >
+
+      {simulationData?.voyage_meta?.esd_recommended?.selected_measures?.map((esd,index)=>(
+
+        <div
+          key={index}
+          className="selected-esd-card"
+        >
+
+          <div className="selected-esd-title">
+            {esd.name}
+          </div>
+
+          <div className="selected-esd-fields">
+
+            <div className="selected-esd-field">
+
+              <label>Efficiency Gain (%)</label>
+
+             <input
+  value={esd.efficiency_gain_percent}
+  onChange={(e) => {
+
+    const updated = [...simulationData.voyage_meta.esd_recommended.selected_measures];
+
+    updated[index].efficiency_gain_percent = e.target.value;
+
+    setSimulationData(prev => ({
+      ...prev,
+      voyage_meta: {
+        ...prev.voyage_meta,
+        esd_recommended: {
+          ...prev.voyage_meta.esd_recommended,
+          selected_measures: updated,
+        },
+      },
+    }));
+
+  }}
+/>
+
+            </div>
+
+            <div className="selected-esd-field">
+
+              <label>Cost (USD)</label>
+
+              <input
+                value={esd.cost_usd}
+                onChange={(e)=>{
+
+const updated=[...simulationData.voyage_meta.esd_recommended.selected_measures];
+
+updated[index].cost_usd=e.target.value;
+
+setSimulationData(prev=>({
+...prev,
+voyage_meta:{
+...prev.voyage_meta,
+esd_recommended:{
+...prev.voyage_meta.esd_recommended,
+selected_measures:updated
+}
+}
+}));
+
+}}
+              />
+
+            </div>
+
+          </div>
+
+        </div>
+
+      ))}
+
+    </Collapse.Panel>
+
+  </Collapse>
+
+</div>
 
               {/* CENTER: Charts & Content */}
               {/* CENTER: Charts & Content */}
@@ -800,7 +1274,7 @@ function Tracker({ userEmail, onLogout }) {
                     {selectedEsdObjects.length > 0 ? (
                       <>
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                          {selectedEsdObjects.map((esd) => (
+                          {selectedEsds.map((esd) => (
                             <div
                               key={esd.id}
                               style={{
@@ -817,8 +1291,11 @@ function Tracker({ userEmail, onLogout }) {
                             >
                               {esd.name}
                               <button
-                                onClick={() => removeSelectedEsd(esd.id)}
-                                style={{
+onClick={() =>
+setSelectedEsds(prev =>
+prev.filter(item => item.id !== esd.id)
+)
+}                                style={{
                                   background: 'transparent',
                                   border: 'none',
                                   cursor: 'pointer',
@@ -1014,7 +1491,7 @@ function Tracker({ userEmail, onLogout }) {
                     {selectedEsdObjects.map((esd) => (
                       <div key={esd.id} style={{ fontSize: '11px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px', backgroundColor: '#F9FAFB', borderRadius: '4px' }}>
                         <span style={{ color: '#1A1A1A', fontWeight: '500' }}>{esd.name}</span>
-                        <span style={{ color: '#1D9E75', fontWeight: '600' }}>+{esd.saving}%</span>
+                        <span style={{ color: '#1D9E75', fontWeight: '600' }}>+{esd.efficiency_gain_percent}%</span>
                       </div>
                     ))}
                   </div>
@@ -1533,89 +2010,89 @@ function Tracker({ userEmail, onLogout }) {
                     </details>
 
                     {measures
-.filter(item =>
-  selectedEsds.some(esd => esd.id === item.id)
-)                      .map(item => (
+                      .filter(item =>
+                        selectedEsds.some(esd => esd.id === item.id)
+                      ).map(item => (
 
                         <div
-  key={item.id}
-  className="selected-esd-card"
->
+                          key={item.id}
+                          className="selected-esd-card"
+                        >
 
-  <div className="selected-esd-header">
+                          <div className="selected-esd-header">
 
-    <div className="selected-esd-title">
-      {item.name}
-    </div>
+                            <div className="selected-esd-title">
+                              {item.name}
+                            </div>
 
-    <button
-      className="selected-esd-remove"
-      onClick={() => toggleEsd(item.id)}
-    >
-      ✕
-    </button>
+                            <button
+                              className="selected-esd-remove"
+                              onClick={() => toggleEsd(item.id)}
+                            >
+                              ✕
+                            </button>
 
-  </div>
+                          </div>
 
-  <div className="selected-esd-fields">
+                          <div className="selected-esd-fields">
 
-    <div className="selected-esd-field">
+                            <div className="selected-esd-field">
 
-      <label>Efficiency Gain (%)</label>
+                              <label>Efficiency Gain (%)</label>
 
-      <input
-        value={
-          selectedEsds.find(esd => esd.id === item.id)
-            ?.efficiency_gain_percent || ""
-        }
-        onChange={(e) => {
+                              <input
+                                value={
+                                  selectedEsds.find(esd => esd.id === item.id)
+                                    ?.efficiency_gain_percent || ""
+                                }
+                                onChange={(e) => {
 
-          setSelectedEsds(prev =>
-            prev.map(esd =>
-              esd.id === item.id
-                ? {
-                    ...esd,
-                    efficiency_gain_percent: e.target.value
-                  }
-                : esd
-            )
-          );
+                                  setSelectedEsds(prev =>
+                                    prev.map(esd =>
+                                      esd.id === item.id
+                                        ? {
+                                          ...esd,
+                                          efficiency_gain_percent: e.target.value
+                                        }
+                                        : esd
+                                    )
+                                  );
 
-        }}
-      />
+                                }}
+                              />
 
-    </div>
+                            </div>
 
-    <div className="selected-esd-field">
+                            <div className="selected-esd-field">
 
-      <label>Cost (USD)</label>
+                              <label>Cost (USD)</label>
 
-      <input
-        value={
-          selectedEsds.find(esd => esd.id === item.id)
-            ?.cost_usd || ""
-        }
-        onChange={(e) => {
+                              <input
+                                value={
+                                  selectedEsds.find(esd => esd.id === item.id)
+                                    ?.cost_usd || ""
+                                }
+                                onChange={(e) => {
 
-          setSelectedEsds(prev =>
-            prev.map(esd =>
-              esd.id === item.id
-                ? {
-                    ...esd,
-                    cost_usd: e.target.value
-                  }
-                : esd
-            )
-          );
+                                  setSelectedEsds(prev =>
+                                    prev.map(esd =>
+                                      esd.id === item.id
+                                        ? {
+                                          ...esd,
+                                          cost_usd: e.target.value
+                                        }
+                                        : esd
+                                    )
+                                  );
 
-        }}
-      />
+                                }}
+                              />
 
-    </div>
+                            </div>
 
-  </div>
+                          </div>
 
-</div>
+                        </div>
 
                       ))}
 

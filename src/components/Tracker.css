@@ -1180,7 +1180,7 @@ body {
 }
 
 .selected-esd-field input {
-  width: 100%;
+  width: 50%;
   height: 42px;
   border: 1px solid #d0d7e2;
   border-radius: 8px;

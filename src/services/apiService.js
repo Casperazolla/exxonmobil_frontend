@@ -209,6 +209,25 @@ export const vesselAPI = {
     }
   },
 
+  getSimulationMeta: async (vesselId) => {
+  try {
+    const data = await makeRequest(
+      "GET",
+      `/simulation/vessel-meta/?vessel_id=${vesselId}`
+    );
+
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.message || error.message,
+    };
+  }
+},
+
 
   
 
@@ -272,6 +291,9 @@ export const uploadAPI = {
     }
   },
 };
+
+
+
 
 
 export { api, makeRequest };
