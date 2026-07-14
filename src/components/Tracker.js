@@ -330,7 +330,7 @@ const loadSimulationData = async (vesselId) => {
 
     const result = await vesselAPI.getSimulationMeta(vesselId);
 
-    console.log("SIMULATION API:", result);
+   
 
     if (!result.success) {
       console.log(result.error);
@@ -766,7 +766,10 @@ selectedEsds.reduce(
           <div className="page-content simulator-page report-export">
             {/* Header with vessel badge */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            
+
+
+              {/* <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ fontSize: '20px', fontWeight: '600', color: '#1A1A1A' }}>
                   {simulationData?.vessel?.vessel_name} — {simulationData?.vessel?.imo_number}
                 </div>
@@ -776,7 +779,7 @@ selectedEsds.reduce(
               </div>
               <button className="btn btn-secondary" style={{ gap: '6px' }} onClick={handleExportPdf} type="button">
                 📥 Export PDF
-              </button>
+              </button> */}
             </div>
 
             <div style={{
@@ -1177,95 +1180,14 @@ machines:updated
     </Collapse.Panel>
 
 
-    <Collapse.Panel
-      header="Recommended Measures"
-      key="5"
-    >
-
-      {simulationData?.voyage_meta?.esd_recommended?.selected_measures?.map((esd,index)=>(
-
-        <div
-          key={index}
-          className="selected-esd-card"
-        >
-
-          <div className="selected-esd-title">
-            {esd.name}
-          </div>
-
-          <div className="selected-esd-fields">
-
-            <div className="selected-esd-field">
-
-              <label>Efficiency Gain (%)</label>
-
-             <input
-  value={esd.efficiency_gain_percent}
-  onChange={(e) => {
-
-    const updated = [...simulationData.voyage_meta.esd_recommended.selected_measures];
-
-    updated[index].efficiency_gain_percent = e.target.value;
-
-    setSimulationData(prev => ({
-      ...prev,
-      voyage_meta: {
-        ...prev.voyage_meta,
-        esd_recommended: {
-          ...prev.voyage_meta.esd_recommended,
-          selected_measures: updated,
-        },
-      },
-    }));
-
-  }}
-/>
-
-            </div>
-
-            <div className="selected-esd-field">
-
-              <label>Cost (USD)</label>
-
-              <input
-                value={esd.cost_usd}
-                onChange={(e)=>{
-
-const updated=[...simulationData.voyage_meta.esd_recommended.selected_measures];
-
-updated[index].cost_usd=e.target.value;
-
-setSimulationData(prev=>({
-...prev,
-voyage_meta:{
-...prev.voyage_meta,
-esd_recommended:{
-...prev.voyage_meta.esd_recommended,
-selected_measures:updated
-}
-}
-}));
-
-}}
-              />
-
-            </div>
-
-          </div>
-
-        </div>
-
-      ))}
-
-    </Collapse.Panel>
+   
 
   </Collapse>
 
 </div>
 
-              {/* CENTER: Charts & Content */}
-              {/* CENTER: Charts & Content */}
-              <div className="simulator-center">                {/* Selected ESDs */}
+             
+              <div className="simulator-center">               
                 <div className="card">
                   <div className="card-body" style={{ padding: '12px' }}>
                     <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', color: '#1A1A1A' }}>

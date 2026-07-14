@@ -129,7 +129,7 @@ login: async (email, password) => {
       password,
     });
 
-    console.log("LOGIN RESPONSE", response.data);
+    
 
     const token =
       response.data?.access ||
@@ -137,10 +137,7 @@ login: async (email, password) => {
 
     if (token) {
       localStorage.setItem("Authorization", token);
-      console.log(
-  "Saved token:",
-  localStorage.getItem("Authorization")
-);
+     
     }
 
     return {

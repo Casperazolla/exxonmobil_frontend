@@ -48,7 +48,6 @@ function LoginPage({ onLoginSuccess }) {
       const response = await authAPI.login(email, password);
 
       if (response.success) {
-        console.log('Login successful:', response.data);
         
     
         onLoginSuccess(response.data.user || email);
@@ -100,7 +99,6 @@ function LoginPage({ onLoginSuccess }) {
       );
 
       if (response.success) {
-        console.log('Signup successful, check email for OTP');
         
         
         setSignupEmail(email);
@@ -136,7 +134,6 @@ function LoginPage({ onLoginSuccess }) {
       const response = await authAPI.verifyOtp(signupEmail, otp);
 
       if (response.success) {
-        console.log('OTP verified:', response.data);
         
        
         onLoginSuccess(response.data.user || signupEmail);
