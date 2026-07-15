@@ -1,6 +1,6 @@
 .simulator-layout{
   display:grid;
-  grid-template-columns:190px 1fr 250px;
+  grid-template-columns: 3fr 1fr;
   gap:10px;
 }
 .simulator-center{
@@ -42,7 +42,7 @@
 
 .simulator-layout{
   display:grid;
-  grid-template-columns:190px 1fr 250px;
+  /* grid-template-columns:190px 1fr 250px; */
   gap:10px;
   align-items:start;
   width:100%;
