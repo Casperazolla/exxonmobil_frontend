@@ -417,7 +417,7 @@ body {
     background:#fff;
     width:95vw;
     max-width:1250px;
-    height:92vh;
+    height:40vh;
 
     border-radius:16px;
     overflow:hidden;
@@ -551,6 +551,14 @@ body {
   }
 }
 
+@media (max-width: 1366px) {
+
+    .modal {
+    max-width: 95%;
+    height: 65vh;
+  }
+}
+
 @media (max-width: 768px) {
   .nav {
     flex-wrap: wrap;
@@ -600,7 +608,7 @@ body {
 
   .modal {
     max-width: 95%;
-    max-height: 95vh;
+    max-height: 80vh;
   }
 }
 

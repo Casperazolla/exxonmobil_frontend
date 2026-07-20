@@ -4,15 +4,19 @@ import Tracker from './components/Tracker';
 import './App.css';
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
+  // Check localStorage for existing session
+  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('Authorization'));
+  const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
 
   const handleLoginSuccess = (email) => {
-    setUserEmail(email);
+    localStorage.setItem('userEmail', typeof email === 'string' ? email : email?.email || '');
+    setUserEmail(typeof email === 'string' ? email : email?.email || '');
     setIsLoggedIn(true);
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('Authorization');
+    localStorage.removeItem('userEmail');
     setIsLoggedIn(false);
     setUserEmail('');
   };

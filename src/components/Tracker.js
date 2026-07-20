@@ -17,10 +17,9 @@ import {
 
 import './Tracker.css';
 import { ESD_LIBRARY } from '../data/esdLibrary';
-import { SAMPLE_VESSELS } from '../data/vessels';
-import { SAMPLE_TRACKER } from '../data/trackerData';
 import './Simulator.css';
-import { onboardingAPI, vesselAPI } from '../services/apiService';
+import { onboardingAPI, vesselAPI, simulationAPI } from '../services/apiService';
+import SimulationWorkspace from './SimulationWorkspace';
 
 
 const { Option } = Select;
@@ -66,11 +65,10 @@ const mapApiVesselToLocal = (raw = {}, index = 0) => {
 
 function Tracker({ userEmail, onLogout }) {
   const [activeTab, setActiveTab] = useState('vessels');
-  const [vessels, setVessels] = useState(SAMPLE_VESSELS);
-  const [trackerData] = useState(SAMPLE_TRACKER);
+  const [vessels, setVessels] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [simulatingId, setSimulatingId] = useState(SAMPLE_VESSELS[0]?.id ?? null);
+  const [simulatingId, setSimulatingId] = useState(null);
   const [selectedEsds, setSelectedEsds] = useState([]);
   const [vesselsLoading, setVesselsLoading] = useState(true);
   const [vesselsError, setVesselsError] = useState(null);
@@ -119,18 +117,17 @@ function Tracker({ userEmail, onLogout }) {
     imoNumber: '',
     grossTonnage: '',
     deadWeight: '',
-    sailingDays: '',
-    nonSteamingDays: '',
-    euPct: '',
-    euaCost: '',
-    costDO: '',
-    costLFO: '',
-    costHFO: '',
-    costLPGP: '',
-    costLPGB: '',
-    costLNG: '',
-    feumPenalty: '',
-    ciiRating: 'D',
+    sailingDays: '200',
+    nonSteamingDays: '165',
+    distanceNm: '60000',
+    euPct: '30',
+    euaCost: '75',
+    fI: '1.0',
+    fM: '1.0',
+    fC: '1.0',
+    fIvse: '1.0',
+    vesselLifeYears: '25',
+    discountRate: '0.10',
   });
 
   const openOnboardModal = (vesselId = null) => {
@@ -154,18 +151,17 @@ function Tracker({ userEmail, onLogout }) {
         imoNumber: '',
         grossTonnage: '',
         deadWeight: '',
-        sailingDays: '',
-        nonSteamingDays: '',
-        euPct: '',
-        euaCost: '',
-        costDO: '',
-        costLFO: '',
-        costHFO: '',
-        costLPGP: '',
-        costLPGB: '',
-        costLNG: '',
-        feumPenalty: '',
-        ciiRating: 'D',
+        sailingDays: '200',
+        nonSteamingDays: '165',
+        distanceNm: '60000',
+        euPct: '30',
+        euaCost: '75',
+        fI: '1.0',
+        fM: '1.0',
+        fC: '1.0',
+        fIvse: '1.0',
+        vesselLifeYears: '25',
+        discountRate: '0.10',
       });
       setEditingId(null);
     }
@@ -290,27 +286,23 @@ function Tracker({ userEmail, onLogout }) {
 
 
   const loadVessels = async () => {
-
+    console.log('[loadVessels] Starting API call...');
     setVesselsLoading(true);
     setVesselsError(null);
 
     try {
-
       const result = await vesselAPI.getAll();
-
+      console.log('[loadVessels] API result:', result);
 
       if (!result.success) {
         setVesselsError(result.error);
         return;
       }
 
-      const vesselList =
-        result.data?.data?.vessels ||
-        result.data?.vessels ||
-        result.data?.results ||
-        [];
-
-
+      const raw = result.data?.data || result.data;
+      const vesselList = Array.isArray(raw) ? raw
+        : raw?.vessels || raw?.results || [];
+      console.log('[loadVessels] Parsed', vesselList.length, 'vessels');
 
       setVessels(
         vesselList.map((item, index) =>
@@ -363,7 +355,6 @@ function Tracker({ userEmail, onLogout }) {
     }
   };
   const saveVessel = async () => {
-
     if (!formData.vesselName || !formData.owner || !formData.imoNumber) {
       alert("Please fill in required fields");
       return;
@@ -394,11 +385,15 @@ function Tracker({ userEmail, onLogout }) {
         analysis_month: parseInt(formData.month, 10) || 0,
         analysis_year: parseInt(formData.year, 10) || 0,
         docking_month: parseInt(formData.dockMonth, 10) || 0,
-        sailing_days_per_year: parseInt(formData.sailingDays, 10) || 0,
-        non_steaming_days_per_year:
-          parseInt(formData.nonSteamingDays, 10) || 0,
-        eu_voyages_percent: parseFloat(formData.euPct) || 0,
-        eua_cost_usd: parseFloat(formData.euaCost) || 0,
+        sailing_days_per_year: parseInt(formData.sailingDays, 10) || 200,
+        non_steaming_days_per_year: parseInt(formData.nonSteamingDays, 10) || 165,
+        distance_nm: parseFloat(formData.distanceNm) || 60000,
+        eu_voyages_percent: parseFloat(formData.euPct) || 30,
+        eua_cost_usd: parseFloat(formData.euaCost) || 75,
+        f_i: parseFloat(formData.fI) || 1.0,
+        f_m: parseFloat(formData.fM) || 1.0,
+        f_c: parseFloat(formData.fC) || 1.0,
+        f_ivse: parseFloat(formData.fIvse) || 1.0,
       },
 
       machines: machines.map(machine => ({
@@ -411,28 +406,57 @@ function Tracker({ userEmail, onLogout }) {
         })),
       })),
 
-      esd_measures: selectedEsds.map(esd => ({
-        category: esd.category.toLowerCase(),
+      esd_measures: selectedEsdObjects.map(esd => ({
+        category: (esd.category || 'operations').toLowerCase(),
         name: esd.name,
-        efficiency_gain_percent: esd.saving,
-        cost_usd: esd.capex,
+        efficiency_gain_percent: esd.saving || esd.efficiency_gain_percent || 0,
+        cost_usd: esd.capex || esd.cost_usd || 0,
+        lead_time_months: esd.lead_time_months || 4,
+        installation_req: esd.installation_req || 'in_sailing',
       })),
+      vessel_life_years: parseInt(formData.vesselLifeYears, 10) || 25,
+      discount_rate: parseFloat(formData.discountRate) || 0.10,
     };
 
 
     try {
 
-      const response = await onboardingAPI.onboardVessel(payload);
+      // Step 1: Delete existing reports for this vessel (if re-onboarding)
+      if (formData.imoNumber) {
+        // Find existing vessel by IMO to get its ID
+        const existingVessel = vessels.find(v => v.imoNumber === formData.imoNumber);
+        if (existingVessel?.id) {
+          await simulationAPI.deleteReports(existingVessel.id);
+          console.log('Existing reports deleted for vessel:', existingVessel.id);
+        }
+      }
 
+      // Step 2: Onboard the vessel
+      const response = await onboardingAPI.onboardVessel(payload);
 
       if (!response.success) {
         alert(response.error || "Failed to onboard vessel");
         return;
       }
 
+      // Get the vessel ID from the response
+      const newVesselId = response.data?.data?.vessel_id || response.data?.vessel_id;
+
+      // Auto-simulate to create the base report
+      if (newVesselId) {
+        try {
+          const simResult = await simulationAPI.simulate(payload, payload.esd_measures || []);
+          if (simResult.success) {
+            console.log('Base report created:', simResult.data?.data?.report_id || simResult.data?.report_id);
+          } else {
+            console.warn('Auto-simulate failed (base report not created):', simResult.error);
+          }
+        } catch (simErr) {
+          console.warn('Auto-simulate error:', simErr.message);
+        }
+      }
 
       await loadVessels();
-
       closeModal();
     } catch (error) {
 
@@ -454,14 +478,66 @@ function Tracker({ userEmail, onLogout }) {
     }
   };
 
+  const [sessionModalOpen, setSessionModalOpen] = useState(false);
+  const [sessionMode, setSessionMode] = useState('base');
+  const [vesselReports, setVesselReports] = useState([]);
+  const [sessionLoading, setSessionLoading] = useState(false);
+
   const openSimulator = async (vesselId) => {
-
-    await loadSimulationData(vesselId);
-
     setSimulatingId(vesselId);
+    setSessionMode('base');
+    setSessionLoading(true);
+    setSessionModalOpen(true);
 
+    // Fetch reports for this vessel to show base/latest options
+    try {
+      const reportsResult = await simulationAPI.listReports(vesselId);
+      if (reportsResult.success) {
+        const reports = reportsResult.data?.data || reportsResult.data || [];
+        setVesselReports(Array.isArray(reports) ? reports : []);
+      } else {
+        setVesselReports([]);
+      }
+    } catch (err) {
+      console.warn('Could not fetch reports:', err.message);
+      setVesselReports([]);
+    }
+    setSessionLoading(false);
+  };
+
+  const [initialReport, setInitialReport] = useState(null);
+
+  const confirmSession = async () => {
+    setSessionModalOpen(false);
+    setSessionLoading(true);
+
+    let reportToLoad = null;
+
+    if (vesselReports.length > 0) {
+      if (sessionMode === 'base') {
+        // Base mode: use the FIRST report's input (the original base report)
+        reportToLoad = vesselReports[0];
+      } else {
+        // Latest mode: use the LAST report's input
+        reportToLoad = vesselReports[vesselReports.length - 1];
+      }
+
+      // If we have a report_id, fetch full report data
+      if (reportToLoad?.report_id) {
+        try {
+          const fullReport = await simulationAPI.getReport(reportToLoad.report_id);
+          if (fullReport.success) {
+            reportToLoad = fullReport.data?.data || fullReport.data;
+          }
+        } catch (err) {
+          console.warn('Could not fetch full report:', err.message);
+        }
+      }
+    }
+
+    setInitialReport(reportToLoad);
+    setSessionLoading(false);
     setActiveTab("simulator");
-
   };
   const handleExportPdf = () => {
     if (!vessel) {
@@ -632,9 +708,10 @@ function Tracker({ userEmail, onLogout }) {
           </button>
           <button
             className={`nav-tab ${activeTab === 'simulator' ? 'on' : ''}`}
-            onClick={() => setActiveTab('simulator')}
+            onClick={() => { if(simulatingId) setActiveTab('simulator'); }}
+            style={activeTab==='simulator'?{background:'#1D9E75',color:'#fff',borderRadius:6,fontWeight:600}:{}}
           >
-            ESD Simulator
+            {getSimulatingVessel()?.vesselName || 'ESD Simulator'}
           </button>
         </div>
         <div className="nav-right">
@@ -645,7 +722,20 @@ function Tracker({ userEmail, onLogout }) {
         </div>
       </nav>
 
-      {/* Main Content */}
+      {/* ===== SIMULATOR — rendered outside container for full width ===== */}
+      {activeTab === 'simulator' && (
+        <SimulationWorkspace
+          vesselId={simulatingId}
+          vesselName={getSimulatingVessel()?.vesselName}
+          sessionMode={sessionMode}
+          initialReport={initialReport}
+          vesselReports={vesselReports}
+          onBack={() => setActiveTab('vessels')}
+        />
+      )}
+
+      {/* Main Content (vessels page only) */}
+      {activeTab !== 'simulator' && (
       <div className="container">
         {/* ===== VESSELS PAGE ===== */}
         {activeTab === 'vessels' && (
@@ -767,729 +857,68 @@ function Tracker({ userEmail, onLogout }) {
           </div>
         )}
 
-        {/* ===== SIMULATOR PAGE ===== */}
-        {activeTab === 'simulator' && (
-          <div className="page-content simulator-page report-export">
-            <div className="sim-navbar">
-
-              {/* ESD */}
-              <div
-                className="menu-item"
-                onMouseEnter={() => {
-                  setOpenMenu("esd");
-                  setOpenSubMenu(null);
-                }}
-                onMouseLeave={() => {
-                  setOpenMenu(null);
-                  setOpenSubMenu(null);
-                }}
-              >
-                <button>ESD Library ▾</button>
-
-                {openMenu === "esd" && (
-                  <div className="dropdown">
-
-                    <div
-                      className="dropdown-item"
-                      onMouseEnter={() => setOpenSubMenu("hydro")}
-                    >
-                      Hydrodynamic Upgrades ▶
-
-                      {openSubMenu === "hydro" && (
-                        <div className="submenu">
-                          {groupedEsds["Hydrodynamic Upgrades"]?.map(item => (
-                            <div
-                              key={item.id}
-                              className="submenu-item"
-                              onClick={() => {
-
-                                toggleEsd(item.id);
-
-                                setSelectedItem(item);
-
-                                setSelectedSection("esd");
-
-                              }}
-                            >
-                              {item.name}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div
-                      className="dropdown-item"
-                      onMouseEnter={() => setOpenSubMenu("thermo")}
-                    >
-                      Thermodynamic Upgrades ▶
-
-                      {openSubMenu === "thermo" && (
-                        <div className="submenu">
-                          {groupedEsds["Thermodynamic Upgrades"]?.map(item => (
-                            <div
-                              key={item.id}
-                              className="submenu-item"
-                              onClick={() => {
-
-                                toggleEsd(item.id);
-
-                                setSelectedItem(item);
-
-                                setSelectedSection("esd");
-
-                              }}
-                            >
-                              {item.name}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div
-                      className="dropdown-item"
-                      onMouseEnter={() => setOpenSubMenu("engine")}
-                    >
-                      Main Engine Upgrades ▶
-
-                      {openSubMenu === "engine" && (
-                        <div className="submenu">
-                          {groupedEsds["Main Engine Upgrades"]?.map(item => (
-                            <div
-                              key={item.id}
-                              className="submenu-item"
-                              onClick={() => {
-
-                                toggleEsd(item.id);
-
-                                setSelectedItem(item);
-
-                                setSelectedSection("esd");
-
-                              }}
-                            >
-                              {item.name}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div
-                      className="dropdown-item"
-                      onMouseEnter={() => setOpenSubMenu("electrical")}
-                    >
-                      Electrical Upgrades ▶
-
-                      {openSubMenu === "electrical" && (
-                        <div className="submenu">
-                          {groupedEsds["Electrical Upgrades"]?.map(item => (
-                            <div
-                              key={item.id}
-                              className="submenu-item"
-                              onClick={() => {
-
-                                toggleEsd(item.id);
-
-                                setSelectedItem(item);
-
-                                setSelectedSection("esd");
-
-                              }}
-                            >
-                              {item.name}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                  </div>
-                )}
-
-              </div>
-
-              {/* Vessel */}
-              <div
-                className="menu-item"
-                onMouseEnter={() => {
-                  setOpenMenu("vessel");
-                  setOpenSubMenu(null);
-                }}
-                onMouseLeave={() => {
-                  setOpenMenu(null);
-                  setOpenSubMenu(null);
-                }}
-              >
-
-                <button>Vessel Information ▾</button>
-
-                {openMenu === "vessel" && (
-
-                  <div className="dropdown">
-
-                    <div
-                      className="dropdown-item"
-                      onClick={() => setSelectedSection("vessel")}
-                    >
-                      General Information
-                    </div>
-
-                  </div>
-
-                )}
-
-              </div>
-
-              {/* Voyage */}
-              <div
-                className="menu-item"
-                onMouseEnter={() => {
-                  setOpenMenu("voyage");
-                  setOpenSubMenu(null);
-                }}
-                onMouseLeave={() => {
-                  setOpenMenu(null);
-                  setOpenSubMenu(null);
-                }}
-              >
-
-                <button>Voyage Information ▾</button>
-
-                {openMenu === "voyage" && (
-
-                  <div className="dropdown">
-
-                    <div
-                      className="dropdown-item"
-                      onClick={() => setSelectedSection("voyage")}
-                    >
-                      Voyage Details
-                    </div>
-
-                  </div>
-
-                )}
-
-              </div>
-              {/* Machines */}
-              <div
-                className="menu-item"
-                onMouseEnter={() => {
-                  setOpenMenu("machines");
-                  setOpenSubMenu(null);
-                }}
-                onMouseLeave={() => {
-                  setOpenMenu(null);
-                  setOpenSubMenu(null);
-                }}
-              >
-
-                <button>Machines ▾</button>
-
-                {openMenu === "machines" && (
-
-                  <div className="dropdown">
-
-                    <div
-                      className="dropdown-item"
-                      onClick={() => setSelectedSection("machines")}
-                    >
-                      Fuel Particulars
-                    </div>
-
-                  </div>
-
-                )}
-
-              </div>
-
-            </div>
-
-            <div className="card esd-library">
-
-              {selectedSection === "esd" && selectedItem && (
-
-                <div className="selected-esd-card">
-
-                  <h3>{selectedItem.name}</h3>
-
-                  <div className="selected-esd-fields">
-
-                    <div className="selected-esd-field">
-
-                      <label>Efficiency Gain (%)</label>
-
-                      <input
-                        value={
-                          selectedEsds.find(
-                            e => e.id === selectedItem.id
-                          )?.efficiency_gain_percent || ""
-                        }
-                        onChange={(e) => {
-
-                          setSelectedEsds(prev =>
-                            prev.map(esd =>
-                              esd.id === selectedItem.id
-                                ? {
-                                  ...esd,
-                                  efficiency_gain_percent: e.target.value
-                                }
-                                : esd
-                            )
-
-                          );
-
-                        }}
-                      />
-
-                    </div>
-
-                    <div className="selected-esd-field">
-
-                      <label>Cost (USD)</label>
-
-                      <input
-                        value={
-                          selectedEsds.find(
-                            e => e.id === selectedItem.id
-                          )?.cost_usd || ""
-                        }
-                      />
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              )}
-
-
-              {selectedSection === "vessel" && (
-                <div className="form-grid">
-
-                  <div className="form-group">
-                    <label>Owner</label>
-                    <input
-                      value={simulationData?.vessel?.name_of_owner || ""}
-                      disabled
-
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Vessel Name</label>
-                    <input
-                      value={simulationData?.vessel?.vessel_name || ""}
-                      disabled
-
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Vessel Type</label>
-                    <input
-                      value={simulationData?.vessel?.vessel_type || ""}
-                      disabled
-
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Build Year</label>
-                    <input
-                      value={simulationData?.vessel?.build_year || ""}
-                      disabled
-
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>IMO Number</label>
-                    <input
-                      value={simulationData?.vessel?.imo_number || ""}
-                      disabled
-
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Flag</label>
-                    <input
-                      value={simulationData?.vessel?.flag || ""}
-                      disabled
-
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Gross Tonnage</label>
-                    <input
-                      value={simulationData?.vessel?.gross_tonnage || ""}
-                      disabled
-
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Dead Weight</label>
-                    <input
-                      value={simulationData?.vessel?.dead_weight || ""}
-                      disabled
-
-                    />
-                  </div>
-
-                </div>
-              )}
-
-              {selectedSection === "voyage" && (
-                <div className="form-grid">
-
-                  {[
-                    ["analysis_month", "Analysis Month"],
-                    ["analysis_year", "Analysis Year"],
-                    ["docking_month", "Docking Month"],
-                    ["sailing_days_per_year", "Sailing Days"],
-                    ["non_steaming_days_per_year", "Non Steaming Days"],
-                    ["eu_voyages_percent", "EU Voyages %"],
-                    ["eua_cost_usd", "EUA Cost"]
-                  ].map(([key, label]) => (
-
-                    <div
-                      key={key}
-                      className="form-group"
-                    >
-
-                      <label>{label}</label>
-
-                      <input
-                        value={simulationData?.voyage_meta?.[key] || ""}
-                        onChange={(e) =>
-                          setSimulationData(prev => ({
-                            ...prev,
-                            voyage_meta: {
-                              ...prev.voyage_meta,
-                              [key]: e.target.value
-                            }
-                          }))
-                        }
-                      />
-
-                    </div>
-
-                  ))}
-
-                </div>
-              )}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-              {selectedSection === "machines" && (
-                <div>
-
-                  {simulationData?.machines?.map((machine, mIndex) => (
-
-                    <div
-                      key={mIndex}
-                      className="machine-card"
-                    >
-
-                      <h4>{machine.machine_name}</h4>
-
-                      {machine.fuel_particulars.map((fuel, fIndex) => (
-
-                        <div
-                          key={fIndex}
-                          className="machine-row"
-                        >
-
-                          <input
-                            value={fuel.fuel_name}
-                            onChange={(e) => {
-
-                              const updated = [...simulationData.machines];
-
-                              updated[mIndex]
-                                .fuel_particulars[fIndex]
-                                .fuel_name = e.target.value;
-
-                              setSimulationData(prev => ({
-                                ...prev,
-                                machines: updated
-                              }));
-
-                            }}
-                          />
-
-                          <input
-                            value={fuel.consumption_mt}
-                            onChange={(e) => {
-
-                              const updated = [...simulationData.machines];
-
-                              updated[mIndex].fuel_particulars[fIndex].consumption_mt =
-                                e.target.value;
-
-                              setSimulationData(prev => ({
-                                ...prev,
-                                machines: updated,
-                              }));
-
-                            }}
-                          />
-
-                          <input
-                            value={fuel.fuel_price_usd_per_mt}
-                            onChange={(e) => {
-
-                              const updated = [...simulationData.machines];
-
-                              updated[mIndex]
-                                .fuel_particulars[fIndex]
-                                .fuel_price_usd_per_mt = e.target.value;
-
-                              setSimulationData(prev => ({
-                                ...prev,
-                                machines: updated,
-                              }));
-
-                            }}
-                          />
-
-                        </div>
-
-                      ))}
-
-                    </div>
-
-                  ))}
-
-                </div>
-              )}
-
-
-
-
-
-
-
-            </div>
-
-
-            <div className="simulator-layout">
-
-
-
-              <div className="simulator-center">
-
-
-
-                <div className="chart-row">
-
-                  <div className="card chart-card">
-
-                    <div className="card-hd">
-                      <span className="card-title">
-                        Investment Overview
-                      </span>
-                    </div>
-
-                    <div className="card-body">
-
-                      <ResponsiveContainer width="100%" height={280}>
-                        <BarChart data={investmentData}>
-                          <CartesianGrid stroke="#E5E7EB" strokeOpacity={0.6} vertical={false} />
-                          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                          <YAxis tickFormatter={formatMillions} tick={{ fontSize: 11 }} />
-                          <Tooltip formatter={(value) => formatCurrencyShort(value)} />
-                          <Bar dataKey="value" radius={[3, 3, 0, 0]}>
-                            {investmentData.map((entry, index) => (
-                              <Cell
-                                key={index}
-                                fill={entry.value < 0 ? "#e0746acb" : "#216ad8bb"}
-                              />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-
-                  </div>
-
-                  <div className="card chart-card">
-
-                    <div className="card-hd">
-                      <span className="card-title">
-                        Accumulated Cash Flow
-                      </span>
-                    </div>
-
-                    <div className="card-body">
-
-                      <ResponsiveContainer width="100%" height={280}>
-                        <AreaChart data={cashFlowData}>
-                          <defs>
-                            <linearGradient id="cashFlowFill" x1="1" y1="0" x2="0" y2="0">
-                              <stop offset="0%" stopColor="#94A3B8" stopOpacity={0.12} />
-                              <stop offset="100%" stopColor="#94A3B8" stopOpacity={0.32} />
-                            </linearGradient>
-                            <linearGradient id="cashFlowStroke" x1="1" y1="0" x2="0" y2="0">
-                              <stop offset="0%" stopColor="#5A84CA" />
-                              <stop offset="100%" stopColor="#216ad8bb" />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid stroke="#E5E7EB" strokeOpacity={0.6} vertical={false} />
-                          <XAxis dataKey="year" ticks={[2025, 2028, 2031, 2034, 2037]} tick={{ fontSize: 11 }} />
-                          <YAxis domain={[200000, 'auto']} tickFormatter={formatMillions} tick={{ fontSize: 11 }} />
-                          <Tooltip formatter={(value) => formatCurrencyShort(value)} />
-                          <Area
-                            type="monotone"
-                            dataKey="cashFlow"
-                            stroke="url(#cashFlowStroke)"
-                            strokeWidth={2}
-                            fill="url(#cashFlowFill)"
-                            dot={{ r: 3, fill: '#2F6ECB' }}
-                            activeDot={{ r: 4 }}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-
-                  </div>
-
-                </div>
-
-                <div className="card opex-card">
-
-                  <div className="card-hd">
-                    <span className="card-title">
-                      EET Yearly OpEx Savings
-                    </span>
-                  </div>
-
-                  <div className="card-body">
-
-                    <ResponsiveContainer width="100%" height={320}>
-                      <BarChart data={opexData}>
-                        <CartesianGrid stroke="#E5E7EB" strokeOpacity={0.6} vertical={false} />
-                        <XAxis dataKey="year" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="savings" stackId="opex" fill="#216ad8bb" name="Savings" />
-                        <Bar dataKey="euSavings" stackId="opex" fill="#b1c5f1ce" name="EU Savings" />
-
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                </div>
-              </div>
-
-
-              <div className="simulator-right">
-                <div className="kpi-row">
-                  {/* Active ESDs */}
-                  <div className="kpi-card">
-                    <div className="kpi-label">ESDs Active</div>
-                    <div className="kpi-value" style={{ color: '#1D9E75' }}>{selectedEsds.length}</div>
-                  </div>
-
-                  {/* Total Saving */}
-                  <div className="kpi-card">
-                    <div className="kpi-label">Total Saving</div>
-                    <div className="kpi-value" style={{ color: '#1D9E75' }}>{totalSaving.toFixed(1)}%</div>
-                  </div>
-
-                  {/* Annual Value */}
-                  <div className="kpi-card">
-                    <div className="kpi-label">Annual Value</div>
-                    <div className="kpi-value" style={{ color: '#2C6FBF' }}>
-                      ${(annualValue / 1000).toFixed(0)}K
-                    </div>
-                  </div>
-
-                  {/* Total CAPEX */}
-                  <div className="kpi-card">
-                    <div className="kpi-label">Total CAPEX</div>
-                    <div className="kpi-value" style={{ color: '#D97706' }}>
-                      ${(totalCapex / 1000).toFixed(0)}K
-                    </div>
-                  </div>
-
-                  {/* Payback */}
-                  <div className="kpi-card">
-                    <div className="kpi-label">Payback</div>
-                    <div className="kpi-value" style={{ color: '#F59E0B' }}>{payback}y</div>
-                  </div>
-
-                  {/* Free Allowance */}
-                  <div className="kpi-card">
-                    <div className="kpi-label">Free Allowance</div>
-                    <div className="kpi-value" style={{ color: '#DC2626' }}>
-                      ${formatNumber(30845)}
-                    </div>
-                  </div>
-
-                </div>
-                <div className="card" style={{ padding: '12px' }}>
-                  <div className="kpi-label">CII Rating</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
-                    <div style={{ padding: '8px 12px', border: '2px solid #DC2626', borderRadius: '6px', fontWeight: '600', fontSize: '14px', color: '#DC2626', minWidth: '50px', textAlign: 'center' }}>
-                      {vessel?.ciiRating || 'D'}
-                    </div>
-                    <div style={{ fontSize: '18px', color: '#9CA3AF' }}>→</div>
-                    <div style={{ padding: '8px 12px', border: '2px solid #D97706', borderRadius: '6px', fontWeight: '600', fontSize: '14px', color: '#D97706', minWidth: '50px', textAlign: 'center' }}>
-                      C
-                    </div>
-                  </div>
-                  <div style={{ fontSize: '9px', color: '#9CA3AF', marginTop: '6px' }}>Improvement estimated</div>
-                </div>
-
-                {/* Impact Breakdown */}
-                <div className="card" style={{ padding: '12px', height: '530px' }}>
-                  <div className="kpi-label">Impact Breakdown</div>
-                  <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {selectedEsdObjects.map((esd) => (
-                      <div key={esd.id} style={{ fontSize: '11px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px', backgroundColor: '#F9FAFB', borderRadius: '4px' }}>
-                        <span style={{ color: '#1A1A1A', fontWeight: '500' }}>{esd.name}</span>
-                        <span style={{ color: '#1D9E75', fontWeight: '600' }}>+{esd.efficiency_gain_percent}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* CII Rating */}
-
-              </div>
-
-
-            </div>
-
-
-
-
-          </div>
-        )}
       </div>
+      )} {/* end container for non-simulator pages */}
+
+      {/* ===== MODAL: Start Session ===== */}
+      {sessionModalOpen && (
+        <div className="modal-overlay" onClick={()=>setSessionModalOpen(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:480}}>
+            <div style={{padding:'20px 24px'}}>
+              <div style={{fontSize:16,fontWeight:600,marginBottom:2}}>Start Simulation Session</div>
+              <div style={{fontSize:11,color:'var(--ink3)',marginBottom:14}}>
+                {getSimulatingVessel()?.vesselName || '—'} · IMO {getSimulatingVessel()?.imoNumber || '—'}
+              </div>
+
+              <div
+                onClick={()=>setSessionMode('base')}
+                style={{border:sessionMode==='base'?'2px solid #1D9E75':'1px solid var(--bd)',borderRadius:6,padding:'10px 12px',marginBottom:8,cursor:'pointer',background:sessionMode==='base'?'#FEFCE8':'#fff'}}
+              >
+                <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                  <span style={{fontSize:16}}>📋</span>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:12}}>Start from base report</div>
+                    <div style={{fontSize:10,color:'var(--ink3)',marginTop:1}}>Use original onboarding data. A <b>new report ID</b> is issued on first run.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                onClick={()=>setSessionMode('last')}
+                style={{border:sessionMode==='last'?'2px solid #1D9E75':'1px solid var(--bd)',borderRadius:6,padding:'10px 12px',marginBottom:12,cursor:'pointer',background:sessionMode==='last'?'#FEFCE8':'#fff',opacity:vesselReports.length>0?1:0.5,pointerEvents:vesselReports.length>0?'auto':'none'}}
+              >
+                <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                  <span style={{fontSize:16}}>🔄</span>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:12}}>Continue from last simulation</div>
+                    <div style={{fontSize:10,color:'var(--ink3)',marginTop:1}}>
+                      {vesselReports.length > 0 ? (
+                        <>Last report: <b style={{color:'#1D9E75',fontFamily:'monospace'}}>{vesselReports[vesselReports.length-1]?.report_id || '—'}</b>. All edits update this same ID.</>
+                      ) : (
+                        <>No previous reports found. Onboard the vessel first.</>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{background:'#FEF3C7',border:'1px solid #FDE68A',borderRadius:5,padding:'6px 10px',fontSize:9,color:'#92400E',marginBottom:8}}>
+                <b>Session lock:</b> All edits update the <b>same report ID</b>. A new ID only generates when starting from base.
+              </div>
+              <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:5,padding:'6px 10px',fontSize:9,color:'#1E40AF'}}>
+                <b>Editable:</b> Sailing days · Non-sailing days · EUA cost · Fuel consumption &amp; prices · ESD selection
+              </div>
+
+              <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:14}}>
+                <button className="btn btn-secondary" onClick={()=>setSessionModalOpen(false)}>Cancel</button>
+                <button className="btn btn-primary" onClick={confirmSession} disabled={sessionLoading}>
+                  {sessionLoading ? '⏳ Loading…' : '▶ Start Session'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===== MODAL: Onboard Vessel ===== */}
       {modalOpen && (
@@ -1688,7 +1117,7 @@ function Tracker({ userEmail, onLogout }) {
                         name="sailingDays"
                         value={formData.sailingDays}
                         onChange={handleFormChange}
-                        placeholder="207"
+                        placeholder="200"
                         className="form-input"
                       />
                       <div className="form-hint">Total operating days at sea</div>
@@ -1700,10 +1129,22 @@ function Tracker({ userEmail, onLogout }) {
                         name="nonSteamingDays"
                         value={formData.nonSteamingDays}
                         onChange={handleFormChange}
-                        placeholder="158"
+                        placeholder="165"
                         className="form-input"
                       />
                       <div className="form-hint">At port / idle</div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Distance (NM/Year) <span className="req">*</span></label>
+                      <input
+                        type="number"
+                        name="distanceNm"
+                        value={formData.distanceNm}
+                        onChange={handleFormChange}
+                        placeholder="60000"
+                        className="form-input"
+                      />
+                      <div className="form-hint">Annual voyage distance for CII</div>
                     </div>
                     <div className="form-group">
                       <label className="form-label">% EU Voyages <span className="req">*</span></label>
@@ -1712,21 +1153,76 @@ function Tracker({ userEmail, onLogout }) {
                         name="euPct"
                         value={formData.euPct}
                         onChange={handleFormChange}
-                        placeholder="10"
+                        placeholder="30"
                         className="form-input"
                       />
                       <div className="form-hint">For ETS / EUA calculation</div>
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Cost of 1 EUA (USD) <span className="req">*</span></label>
+                      <label className="form-label">EUA Cost (USD/t) <span className="req">*</span></label>
                       <input
                         type="number"
                         name="euaCost"
                         value={formData.euaCost}
                         onChange={handleFormChange}
-                        placeholder="70"
+                        placeholder="75"
                         className="form-input"
                       />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Vessel Life (Years)</label>
+                      <input
+                        type="number"
+                        name="vesselLifeYears"
+                        value={formData.vesselLifeYears}
+                        onChange={handleFormChange}
+                        placeholder="25"
+                        className="form-input"
+                        min="5" max="40"
+                      />
+                      <div className="form-hint">For payback / NPV calc</div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Discount Rate</label>
+                      <input
+                        type="number"
+                        name="discountRate"
+                        value={formData.discountRate}
+                        onChange={handleFormChange}
+                        placeholder="0.10"
+                        className="form-input"
+                        step="0.01" min="0" max="1"
+                      />
+                      <div className="form-hint">For NPV (e.g. 0.10 = 10%)</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CII Correction Factors */}
+              <div className="onboard-card">
+                <div className="form-section">
+                  <div className="form-section-title">📐 CII Correction Factors <span style={{fontSize:10,fontWeight:400,color:'#9CA3AF'}}>(leave at 1.0 for standard vessels)</span></div>
+                  <div className="form-grid form-grid-4">
+                    <div className="form-group">
+                      <label className="form-label">f_i (Capacity)</label>
+                      <input type="number" name="fI" value={formData.fI} onChange={handleFormChange} placeholder="1.0" className="form-input" step="0.01" />
+                      <div className="form-hint">Capacity correction</div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">f_m (Ice Class)</label>
+                      <input type="number" name="fM" value={formData.fM} onChange={handleFormChange} placeholder="1.0" className="form-input" step="0.01" />
+                      <div className="form-hint">Ice-class correction</div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">f_c (Shuttle)</label>
+                      <input type="number" name="fC" value={formData.fC} onChange={handleFormChange} placeholder="1.0" className="form-input" step="0.01" />
+                      <div className="form-hint">Shuttle tanker correction</div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">f_ivse (EEDI/VSE)</label>
+                      <input type="number" name="fIvse" value={formData.fIvse} onChange={handleFormChange} placeholder="1.0" className="form-input" step="0.01" />
+                      <div className="form-hint">Voluntary structural enhancement</div>
                     </div>
                   </div>
                 </div>
