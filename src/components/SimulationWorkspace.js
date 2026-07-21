@@ -1096,15 +1096,15 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
       <div className="report-main">
 
         {/* Vessel banner */}
-        <div style={{ background: 'var(--sf)', borderBottom: '1px solid var(--bd)', padding: '8px 20px', display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0, flexWrap: 'wrap' }}>
+        <div style={{ background: 'var(--sf)', borderBottom: '1px solid var(--bd)', padding: '8px 20px', display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>{v.vessel_name || vesselName || '—'}</div>
             <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 1 }}>
               {[v.vessel_type, 'IMO ' + (v.imo_number || '?'), 'Built ' + (v.build_year || '?'), v.flag, v.name_of_owner].filter(Boolean).join(' · ')}
             </div>
           </div>
-          {reportData && (
-            <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
+          {/* {reportData && (
+            <div style={{ display: 'flex', gap: 80, alignItems: 'right' }}>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 9, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '.3px' }}>EU Compliance Cost</div>
                 <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--red)', fontFamily: 'IBM Plex Mono,monospace' }}>{fmt$(ps.total_eu_compliance_cost_usd)}</div>
@@ -1116,8 +1116,23 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
                 <div style={{ fontSize: 9, color: 'var(--ink3)' }}>fuel + EUA + FuelEU / yr</div>
               </div>
             </div>
-          )}
+          )} */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: reportData ? 12 : 'auto' }}>
+
+             {reportData && (
+            <div style={{ display: 'flex', gap: 60, alignItems: 'right' }}>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 9, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '.3px' }}>EU Compliance Cost</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--red)', fontFamily: 'IBM Plex Mono,monospace' }}>{fmt$(ps.total_eu_compliance_cost_usd)}</div>
+                <div style={{ fontSize: 9, color: 'var(--ink3)' }}>EUA + FuelEU / yr</div>
+              </div>
+              <div style={{ textAlign: 'right', marginRight: 30 }}>
+                <div style={{ fontSize: 9, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '.3px' }}>ESD Annual Savings</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--green)', fontFamily: 'IBM Plex Mono,monospace' }}>{fmt$(esdSum)}</div>
+                <div style={{ fontSize: 9, color: 'var(--ink3)' }}>fuel + EUA + FuelEU / yr</div>
+              </div>
+            </div>
+          )}
             {feuP.compliant === false && <span style={{ padding: '3px 8px', borderRadius: 10, fontSize: 9, fontWeight: 600, background: '#FEE2E2', color: 'var(--red)' }}>FuelEU Non-Compliant</span>}
             {grade && <span style={{ padding: '3px 8px', borderRadius: 10, fontSize: 9, fontWeight: 600, background: 'var(--gl)', color: 'var(--green)' }}>CII Grade {grade}</span>}
             <button className="btn btn-secondary btn-sm" onClick={() => setSidebarOpen(o => !o)}>
