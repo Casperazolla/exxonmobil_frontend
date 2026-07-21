@@ -188,10 +188,27 @@ function EsdTab({ out }) {
           </div>
           <div style={{overflowX:'auto',padding:'0 1px'}}>
             {(() => {
-              const mainFuel = activeFuels[0] || 'HFO';
+              // Collect ALL unique fuel types from machines (not just ESD-active fuels)
+              const allMachineFuels = [...new Set(
+                (out?.input?.machines || []).flatMap(m => (m.fuel_particulars || []).map(fp => fp.fuel_name))
+              )];
+              // Merge with activeFuels from sensitivity data (in case sensitivity has fuels machines don't)
+              const allFuels = [...new Set([...allMachineFuels, ...activeFuels])];
+              
+              const mainFuel = activeFuels[0] || allFuels[0] || 'HFO';
               const mainPrices = ranges[mainFuel] || [];
+              const numCases = mainPrices.length || 13;
               const mainCurPrice = out?.input?.machines?.flatMap(m=>m.fuel_particulars||[]).find(fp=>fp.fuel_name===mainFuel)?.fuel_price_usd_per_mt;
               const mainCurIdx = mainPrices.indexOf(mainCurPrice);
+              
+              // Generate price ranges for fuels not in sensitivity data
+              const generatePriceRange = (fuelName, curPrice) => {
+                const base = curPrice || 500;
+                const step = Math.round(base * 0.08); // ~8% increments
+                const start = Math.round(base - 6 * step);
+                return Array.from({length: numCases}, (_, i) => Math.max(50, start + i * step));
+              };
+              
               return (
                 <table style={{borderCollapse:'collapse',fontSize:10.5,width:'100%'}}>
                   <thead>
@@ -201,17 +218,19 @@ function EsdTab({ out }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {/* Bunker cost rows for each fuel type */}
-                    {activeFuels.map((fuelType,fi) => {
-                      const fPrices = ranges[fuelType] || [];
+                    {/* Bunker cost rows for ALL fuel types */}
+                    {allFuels.map((fuelType,fi) => {
+                      const fPrices = ranges[fuelType] || generatePriceRange(fuelType, 
+                        out?.input?.machines?.flatMap(m=>m.fuel_particulars||[]).find(fp=>fp.fuel_name===fuelType)?.fuel_price_usd_per_mt
+                      );
+                      const fCurPrice = out?.input?.machines?.flatMap(m=>m.fuel_particulars||[]).find(fp=>fp.fuel_name===fuelType)?.fuel_price_usd_per_mt;
+                      const fCurIdx = fPrices.indexOf(fCurPrice) >= 0 ? fPrices.indexOf(fCurPrice) : fPrices.findIndex(p => p >= (fCurPrice||0));
                       return (
                         <tr key={'bc-'+fuelType} style={{background:'#FEF3C7'}}>
                           <td style={{padding:'5px 10px',fontWeight:600,fontSize:10,color:'#D97706'}}>{fuelType}</td>
-                          {fPrices.map((p,i) => {
-                            const fCurPrice = out?.input?.machines?.flatMap(m=>m.fuel_particulars||[]).find(fp=>fp.fuel_name===fuelType)?.fuel_price_usd_per_mt;
-                            const fCurIdx = fPrices.indexOf(fCurPrice);
-                            return <td key={i} style={{padding:'5px 8px',textAlign:'center',fontWeight:600,fontSize:10,color:'#1A1A1A',background:i===fCurIdx?'#FDE68A':undefined}}>{p}</td>;
-                          })}
+                          {fPrices.slice(0, numCases).map((p,i) => 
+                            <td key={i} style={{padding:'5px 8px',textAlign:'center',fontWeight:600,fontSize:10,color:'#1A1A1A',background:i===fCurIdx?'#FDE68A':undefined}}>{p}</td>
+                          )}
                         </tr>
                       );
                     })}
@@ -280,12 +299,26 @@ function CiiTab({ out }) {
         if(!x||!y||!ca||!annualBounds.length) return;
         const GCOLS = {A:'rgba(46,160,84,.50)',B:'rgba(144,208,144,.60)',C:'rgba(245,230,74,.50)',D:'rgba(245,197,163,.65)',E:'rgba(240,128,128,.60)'};
         ctx.save();
+        const isLinear = x.type === 'linear' || x.type === 'timeseries';
         const labels = chart.data.labels || [];
+        const years = annualBounds.map(ab => parseInt(ab.date));
+        
         annualBounds.forEach((ab, idx) => {
-          // For category axis: use label index for pixel position
-          const xL = idx === 0 ? ca.left : (ca.left + (idx / labels.length) * (ca.right - ca.left));
-          const xR = idx === labels.length - 1 ? ca.right : (ca.left + ((idx + 1) / labels.length) * (ca.right - ca.left));
-          if(xR<=xL) return;
+          let xL, xR;
+          if (isLinear) {
+            // Linear axis: use getPixelForValue with year values
+            const yr = years[idx];
+            const nextYr = idx < years.length - 1 ? years[idx + 1] : yr + 1;
+            xL = Math.max(ca.left, x.getPixelForValue(yr));
+            xR = Math.min(ca.right, x.getPixelForValue(nextYr));
+          } else {
+            // Category axis: calculate from index position
+            const step = (ca.right - ca.left) / Math.max(labels.length - 1, 1);
+            const halfStep = step / 2;
+            xL = idx === 0 ? ca.left : ca.left + idx * step - halfStep;
+            xR = idx === labels.length - 1 ? ca.right : ca.left + (idx + 1) * step - halfStep;
+          }
+          if(xR <= xL || isNaN(xL) || isNaN(xR)) return;
           const w = xR - xL;
           [
             {from:0, to:ab.d1, c:GCOLS.A},
@@ -359,7 +392,10 @@ function CiiTab({ out }) {
         {label:'Required CII',data:annual.map(r=>r.required_cii),borderColor:'#C9980A',borderDash:[6,3],borderWidth:1.5,pointRadius:0,fill:false},
       ]
     };
-    buildChart('g1',g1Data,{useGradeBands:true,yMin:2.0,yMax:5.4});
+    // Zoom: fixed 2.0–5.4 when off, auto-fit when on
+    const yBounds = zoomFit ? {} : {yMin:2.0, yMax:5.4};
+    
+    buildChart('g1',g1Data,{useGradeBands:true,...yBounds});
 
     // G2 — Sailing scenarios
     const sailKeys2 = sailFilter==='all'?sailKeys:[sailFilter];
@@ -370,7 +406,7 @@ function CiiTab({ out }) {
       const arr=annualOf(sailing[k]||[]);
       g2Datasets.push({label:k,data:labels.map(yr=>arr.find(r=>parseInt(r.date)===yr)?.attained_cii),borderColor:SAIL_COLORS[sailKeys.indexOf(k)%SAIL_COLORS.length],borderWidth:1.5,pointRadius:3,fill:false});
     });
-    buildChart('g2',{labels,datasets:g2Datasets},{useGradeBands:true,yMin:2.0,yMax:5.4});
+    buildChart('g2',{labels,datasets:g2Datasets},{useGradeBands:true,...yBounds});
 
     // G3 — ESD step-down
     const esdMonthly=esdData.monthly_data||[];
@@ -386,7 +422,7 @@ function CiiTab({ out }) {
     buildChart('g3',{datasets:[
       {label:'Required CII',data:labels.map(yr=>({x:yr,y:annualOf(baseline).find(r=>parseInt(r.date)===yr)?.required_cii})),borderColor:'#C9980A',borderDash:[6,3],borderWidth:1.5,pointRadius:0,fill:false,parsing:false},
       {label:'CII with ESDs',data:pts,borderColor:'#2563EB',borderWidth:2.5,pointRadius:0,fill:false,parsing:false,stepped:'before'},
-    ]},{useGradeBands:true,yMin:2.0,yMax:5.4,scales:{x:{type:'linear',grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'rgba(0,0,0,.04)',drawBorder:false},min:2.0,max:5.4,ticks:{font:{size:10}}}}});
+    ]},{useGradeBands:true,...yBounds,scales:{x:{type:'linear',grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'rgba(0,0,0,.04)',drawBorder:false},...(zoomFit?{}:{min:2.0,max:5.4}),ticks:{font:{size:10}}}}});
 
     // G4 — Combined
     const combKeys2=sailFilter==='all'?Object.keys(combined):[sailFilter];
@@ -395,7 +431,7 @@ function CiiTab({ out }) {
       const arr=annualOf(combined[k]||[]);
       g4Ds.push({label:k,data:labels.map(yr=>arr.find(r=>parseInt(r.date)===yr)?.attained_cii),borderColor:SAIL_COLORS[Object.keys(combined).indexOf(k)%SAIL_COLORS.length],borderWidth:1.5,pointRadius:3,fill:false});
     });
-    buildChart('g4',{labels,datasets:g4Ds},{useGradeBands:true,yMin:2.0,yMax:5.4});
+    buildChart('g4',{labels,datasets:g4Ds},{useGradeBands:true,...yBounds});
   },[baseline,sailing,combined,esdData,sailFilter,zoomFit,buildChart,annualOf,sailKeys,esdTimeline]);
 
   useEffect(()=>{ rebuildAll(); },[rebuildAll]);
