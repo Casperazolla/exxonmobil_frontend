@@ -398,7 +398,7 @@ function CiiTab({ out }) {
       labels,
       datasets: [
         { label: 'Attained CII', data: annual.map(r => r.attained_cii), borderColor: '#1A1A1A', borderWidth: 2.5, pointRadius: 4, tension: 0, fill: false },
-        { label: 'Required CII', data: annual.map(r => r.required_cii), borderColor: '#C9980A', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false },
+        { label: 'Required CII', data: annual.map(r => r.required_cii), borderColor: '#C9980A', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false, stepped: 'before' },
       ]
     };
     // Zoom: fixed 2.0–5.4 when off, auto-fit when on
@@ -409,7 +409,7 @@ function CiiTab({ out }) {
     // G2 — Sailing scenarios
     const sailKeys2 = sailFilter === 'all' ? sailKeys : [sailFilter];
     const g2Datasets = [
-      { label: 'Required', data: labels.map(yr => annualOf(baseline).find(r => parseInt(r.date) === yr)?.required_cii), borderColor: '#C9980A', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false }
+      { label: 'Required', data: labels.map(yr => annualOf(baseline).find(r => parseInt(r.date) === yr)?.required_cii), borderColor: '#C9980A', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false, stepped: 'before' }
     ];
     sailKeys2.forEach((k, i) => {
       const arr = annualOf(sailing[k] || []);
@@ -430,14 +430,14 @@ function CiiTab({ out }) {
     if (esdMonthly.length) { const l = esdMonthly[esdMonthly.length - 1]; const [ly, lm] = l.date.split('-').map(Number); pts.push({ x: ly + lm / 12, y: l.attained_cii }); }
     buildChart('g3', {
       datasets: [
-        { label: 'Required CII', data: labels.map(yr => ({ x: yr, y: annualOf(baseline).find(r => parseInt(r.date) === yr)?.required_cii })), borderColor: '#C9980A', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false, parsing: false },
+        { label: 'Required CII', data: labels.map(yr => ({ x: yr, y: annualOf(baseline).find(r => parseInt(r.date) === yr)?.required_cii })), borderColor: '#C9980A', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false, parsing: false, stepped: 'before' },
         { label: 'CII with ESDs', data: pts, borderColor: '#2563EB', borderWidth: 2.5, pointRadius: 0, fill: false, parsing: false, stepped: 'before' },
       ]
-    }, { useGradeBands: true, ...yBounds, scales: { x: { type: 'linear', grid: { display: false }, ticks: { font: { size: 10 } } }, y: { grid: { color: 'rgba(0,0,0,.04)', drawBorder: false }, ...(zoomFit ? {} : { min: 2.0, max: 5.4 }), ticks: { font: { size: 10 } } } } });
+    }, { useGradeBands: true, ...yBounds, scales: { x: { type: 'linear', grid: { display: false }, ticks: { font: { size: 10 }, stepSize: 1, callback: v => Number.isInteger(v) ? v : '' } }, y: { grid: { color: 'rgba(0,0,0,.04)', drawBorder: false }, ...(zoomFit ? {} : { min: 2.0, max: 5.4 }), ticks: { font: { size: 10 } } } } });
 
     // G4 — Combined
     const combKeys2 = sailFilter === 'all' ? Object.keys(combined) : [sailFilter];
-    const g4Ds = [{ label: 'Required', data: labels.map(yr => annualOf(baseline).find(r => parseInt(r.date) === yr)?.required_cii), borderColor: '#C9980A', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false }];
+    const g4Ds = [{ label: 'Required', data: labels.map(yr => annualOf(baseline).find(r => parseInt(r.date) === yr)?.required_cii), borderColor: '#C9980A', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false, stepped: 'before' }];
     combKeys2.forEach((k, i) => {
       const arr = annualOf(combined[k] || []);
       g4Ds.push({ label: k, data: labels.map(yr => arr.find(r => parseInt(r.date) === yr)?.attained_cii), borderColor: SAIL_COLORS[Object.keys(combined).indexOf(k) % SAIL_COLORS.length], borderWidth: 1.5, pointRadius: 3, fill: false });
