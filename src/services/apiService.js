@@ -104,7 +104,9 @@ export const authAPI = {
 export const vesselAPI = {
   getAll: async () => {
     try {
+      console.log('[getAll] GET /home/list-vessels/');
       const data = await makeRequest('GET', '/home/list-vessels/');
+      console.log(data);
       return { success: true, data };
     } catch (error) {
       return { success: false, error: error.response?.data?.message || error.message };

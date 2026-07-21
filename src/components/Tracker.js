@@ -18,7 +18,7 @@ import {
 import './Tracker.css';
 import { ESD_LIBRARY } from '../data/esdLibrary';
 import './Simulator.css';
-import { onboardingAPI, vesselAPI, simulationAPI } from '../services/apiService';
+import { onboardingAPI, vesselAPI, simulationAPI, makeRequest } from '../services/apiService';
 import SimulationWorkspace from './SimulationWorkspace';
 
 
@@ -43,18 +43,13 @@ const mapApiVesselToLocal = (raw = {}, index = 0) => {
     imoNumber: v.imo_number ?? '',
     grossTonnage: v.gross_tonnage ?? '',
     deadWeight: v.dead_weight ?? '',
-    sailingDays: meta.sailing_days_per_year ?? '',
-    nonSteamingDays: meta.non_steaming_days_per_year ?? '',
-    euPct: meta.eu_voyages_percent ?? '',
-    euaCost: meta.eua_cost_usd ?? '',
-    costDO: raw.cost_do ?? '',
-    costLFO: raw.cost_lfo ?? '',
-    costHFO: raw.cost_hfo ?? '',
-    costLPGP: raw.cost_lpgp ?? '',
-    costLPGB: raw.cost_lpgb ?? '',
-    costLNG: raw.cost_lng ?? '',
-    feumPenalty: raw.feum_penalty ?? '',
-    ciiRating: raw.cii_rating ?? 'D',
+    sailingDays: meta.sailing_days_per_year ?? raw.sailing_days_per_year ?? '',
+    nonSteamingDays: meta.non_steaming_days_per_year ?? raw.non_steaming_days_per_year ?? '',
+    distanceNm: meta.distance_nm ?? '',
+    euPct: meta.eu_voyages_percent ?? raw.eu_voyages_percent ?? '',
+    euaCost: meta.eua_cost_usd ?? raw.eua_cost_usd ?? '',
+    lastReport: raw.last_report ?? raw.lastReport ?? null,
+    lastReportDate: raw.last_report_date ?? null,
     machines,
     selectedEsds: esdMeasures.map((e) => e.id).filter(Boolean),
   };
@@ -472,9 +467,20 @@ function Tracker({ userEmail, onLogout }) {
     }
   };
 
-  const deleteVessel = (vesselId) => {
-    if (window.confirm('Are you sure you want to delete this vessel?')) {
-      setVessels(vessels.filter(v => v.id !== vesselId));
+  const deleteVessel = async (vesselId) => {
+    const vessel = vessels.find(v => v.id === vesselId);
+    if (!window.confirm(`Delete "${vessel?.vesselName || 'this vessel'}" and all its reports?\n\nThis cannot be undone.`)) return;
+    try {
+      // 1. Delete all reports for this vessel
+      await simulationAPI.deleteReports(vesselId);
+      // 2. Delete the vessel itself
+      const result = await makeRequest('POST', '/home/delete-vessel/', { vessel_id: vesselId });
+      console.log('[deleteVessel] Result:', result);
+      // 3. Refresh vessel list from API
+      await loadVessels();
+    } catch (err) {
+      console.error('[deleteVessel] Error:', err);
+      alert('Failed to delete vessel: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -685,6 +691,7 @@ function Tracker({ userEmail, onLogout }) {
     groupedEsds[key].push(esd);
   });
 
+  console.log(vessels);
   return (
     <div className="tracker-wrapper">
       {/* Navigation */}
@@ -778,16 +785,15 @@ function Tracker({ userEmail, onLogout }) {
                         <th>Type</th>
                         <th>IMO</th>
                         <th>DWT</th>
-                        <th>Annual Fuel</th>
-                        <th>CII</th>
-                        <th>FEUM Penalty</th>
+                        <th>GT</th>
+                        <th>Build Year</th>
+                        <th>Sailing Days</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {vessels.map((vessel) => {
                         const ageYrs = new Date().getFullYear() - vessel.buildYear;
-                        const annualFuel = (vessel.costDO || 0) + (vessel.costLFO || 0) + (vessel.costHFO || 0);
                         return (
                           <tr key={vessel.id}>
                             <td>
@@ -801,34 +807,17 @@ function Tracker({ userEmail, onLogout }) {
                             </td>
                             <td className="mono">{vessel.imoNumber}</td>
                             <td>{formatNumber(vessel.deadWeight)} t</td>
-                            <td>{formatNumber(annualFuel)} MT/yr</td>
-                            <td>
-                              <span
-                                className="cii-rating"
-                                style={{
-                                  color: {
-                                    A: '#059669',
-                                    B: '#65A30D',
-                                    C: '#D97706',
-                                    D: '#DC2626',
-                                    E: '#991B1B',
-                                  }[vessel.ciiRating],
-                                }}
-                              >
-                                {vessel.ciiRating}
-                              </span>
-                            </td>
-                            <td style={{ color: '#DC2626' }}>
-                              ${formatNumber(vessel.feumPenalty)}
-                            </td>
+                            <td>{formatNumber(vessel.grossTonnage)} t</td>
+                            <td>{vessel.buildYear} <span style={{fontSize:10,color:'#9CA3AF'}}>({ageYrs}yr)</span></td>
+                            <td>{vessel.sailingDays || '—'} days</td>
                             <td>
                               <div style={{ display: 'flex', gap: '4px' }}>
-                                <button
+                                {/* <button
                                   className="btn btn-secondary btn-sm"
                                   onClick={() => openOnboardModal(vessel.id)}
                                 >
                                   ✏️ Edit
-                                </button>
+                                </button> */}
                                 <button
                                   className="btn btn-primary btn-sm"
                                   onClick={async () => {
@@ -863,8 +852,8 @@ function Tracker({ userEmail, onLogout }) {
       {/* ===== MODAL: Start Session ===== */}
       {sessionModalOpen && (
         <div className="modal-overlay" onClick={()=>setSessionModalOpen(false)}>
-          <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:480}}>
-            <div style={{padding:'20px 24px'}}>
+          <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:'min(480px, 90vw)',width:'100%',maxHeight:'90vh', minHeight:'55vh',overflowY:'auto',margin:'5vh auto'}}>
+            <div style={{padding:'clamp(14px, 3vw, 20px) clamp(16px, 3vw, 24px)'}}>
               <div style={{fontSize:16,fontWeight:600,marginBottom:2}}>Start Simulation Session</div>
               <div style={{fontSize:11,color:'var(--ink3)',marginBottom:14}}>
                 {getSimulatingVessel()?.vesselName || '—'} · IMO {getSimulatingVessel()?.imoNumber || '—'}
