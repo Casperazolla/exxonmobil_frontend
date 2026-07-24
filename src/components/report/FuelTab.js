@@ -34,12 +34,14 @@ export default function FuelTab({ output }) {
           <div className="ks">per year</div>
         </div>
         <div className="kpi-box">
-          <div className="kl">Fuel Types</div>
-          <div className="kv">{(fs.fuel_summary || []).length}</div>
-          <div className="ks">{(fs.fuel_summary || []).map(f => f.fuel_name).join(' · ')}</div>
+           <div style={{textAlign:'right'}}>
+                <div style={{fontSize:9,color:'var(--ink3)',textTransform:'uppercase',letterSpacing:'.3px'}}>EU Compliance Cost</div>
+                <div style={{fontSize:16,fontWeight:600,color:'var(--red)',fontFamily:'IBM Plex Mono,monospace'}}>{fmt$(ps.total_eu_compliance_cost_usd)}</div>
+                <div style={{fontSize:9,color:'var(--ink3)'}}>EUA + FuelEU / yr</div>
+              </div>
         </div>
         <div className="kpi-box">
-          <div className="kl">Machines</div>
+          <div className="kl">Consumers</div>
           <div className="kv">{(fs.machine_breakdown || []).length}</div>
           <div className="ks">{(fs.machine_breakdown || []).map(m => m.machine_name).join(' · ')}</div>
         </div>
@@ -55,7 +57,7 @@ export default function FuelTab({ output }) {
                 <th>Fuel</th>
                 <th className="right">Price/MT</th>
                 <th className="right">MT</th>
-                <th className="right">Total Cost</th>
+                <th className="right">Investment</th>
                 <th className="right">Share</th>
               </tr>
             </thead>

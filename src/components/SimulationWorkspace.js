@@ -28,26 +28,21 @@ const FUEL_BG = {HFO:'#FEF3C7',MDO:'#EFF6FF',LNG:'#D1FAE5',LFO:'#F5F3FF'};
 const FUEL_CL = {HFO:'#92400E',MDO:'#1D4ED8',LNG:'#065F46',LFO:'#7C3AED'};
 const CAT_CLASS = {propulsion:'bx-b',hull:'bx-b',engine:'bx-g',auxiliary:'bx-p',operations:'bx-a'};
 
-// =====================================================================
-// All data from real APIs
-// Used when real API is unavailable — swap out for live API later
-// =====================================================================
-// No static data — all data comes from real APIs
 
-// =====================================================================
-// SUB-COMPONENTS
-// =====================================================================
 
 // ── Fuel Tab ─────────────────────────────────────────────────────────
 function FuelTab({ out }) {
   const fs = out?.fuel_summary || {};
+    const ps     = out?.penalty_summary || {};
+
+
   const total = fs.total_consumption_mt || 1;
   return (
     <div className="rwrap">
       <div className="g4" style={{marginBottom:14}}>
         <div className="kpi"><div className="kpi-l">Total Consumption</div><div className="kpi-v">{fmtN(fs.total_consumption_mt,0)} MT</div><div className="kpi-s">/ year</div></div>
         <div className="kpi"><div className="kpi-l">Total Fuel Cost</div><div className="kpi-v g">{fmt$(fs.total_fuel_cost_usd)}</div><div className="kpi-s">/ year</div></div>
-        <div className="kpi"><div className="kpi-l">Fuel Types</div><div className="kpi-v">{(fs.fuel_summary||[]).length}</div></div>
+        <div className="kpi"><div className="kpi-l">EU COMPLIANCE COST</div><div className="kpi-v">{fmt$(ps.total_eu_compliance_cost_usd)}</div></div>
         <div className="kpi"><div className="kpi-l">Machines</div><div className="kpi-v">{(fs.machine_breakdown||[]).length}</div></div>
       </div>
       <div className="g2">
@@ -124,14 +119,27 @@ function EsdTab({ out }) {
           <thead><tr><th>ESD</th><th>Category</th><th>Install</th><th className="r">Saving%</th><th className="r">Fuel MT</th><th className="r">Fuel $</th><th className="r">EUA $</th><th className="r">FuelEU $</th><th className="r">Total/yr</th><th className="r">Payback(EU)</th></tr></thead>
           <tbody>
             {esds.map((e,i)=>{
-              const fuelStr=Object.entries(e.fuel_savings_mt||{}).map(([fn,mt])=>`${fmtN(mt,0)} ${fn}`).join(', ')||'—';
+              const fuelRows=Object.entries(e.fuel_savings_mt||{});
               return(
               <tr key={i}>
                 <td><b>{e.tech_name}</b></td>
                 <td><span className={`bx ${CAT_CLASS[e.category]||'bx-gray'}`}>{e.category}</span></td>
                 <td><span className={`bx ${e.installation_req==='docking'?'bx-a':'bx-gray'}`}>{e.installation_req?.replace('_','-')}</span></td>
                 <td className="r">{e.calculated_saving_pct?.toFixed(2)}%</td>
-                <td className="r">{fuelStr}</td>
+                <td>
+                  {fuelRows.length?(
+                    <table style={{borderCollapse:'collapse',fontSize:10,marginLeft:'auto',border:'1px solid var(--bd)'}}>
+                      <tbody>
+                        {fuelRows.map(([fn,mt],fi)=>(
+                          <tr key={fi} style={{borderBottom:fi<fuelRows.length-1?'1px solid var(--bd)':'none'}}>
+                            <td style={{padding:'1px 6px',color:'var(--ink3)',fontWeight:600,borderRight:'1px solid var(--bd)'}}>{fn}</td>
+                            <td style={{padding:'1px 6px',textAlign:'right',fontFamily:'IBM Plex Mono,monospace'}}>{fmtN(mt,0)} MT</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ):<span style={{color:'var(--ink3)'}}>—</span>}
+                </td>
                 <td className="r">{fmt$(e.annual_cost_savings_usd)}</td>
                 <td className="r">{fmt$(e.ets_savings_usd)}</td>
                 <td className="r">{fmt$(e.fuel_eu_savings_usd)}</td>
@@ -151,6 +159,141 @@ function EsdTab({ out }) {
           </tbody>
         </table></div>
       </div>
+      
+      {sensItems.length>0&&(() => {
+        // Shared setup for both sensitivity tables (incl-EU and fuel-only).
+        const allMachineFuels = [...new Set(
+          (out?.input?.machines || []).flatMap(m => (m.fuel_particulars || []).map(fp => fp.fuel_name))
+        )];
+        const allFuels  = [...new Set([...allMachineFuels, ...activeFuels])];
+        const mainFuel  = activeFuels[0] || allFuels[0] || 'HFO';
+        const mainPrices= ranges[mainFuel] || [];
+        const numCases  = mainPrices.length || 13;
+        const priceOf = (fuelName) => out?.input?.machines?.flatMap(m=>m.fuel_particulars||[])
+          .find(fp=>fp.fuel_name===fuelName)?.fuel_price_usd_per_mt;
+        const mainCurPrice = sens.current_fuel_prices?.[mainFuel] ?? priceOf(mainFuel);
+
+        const generatePriceRange = (fuelName, cp) => {
+          const base = cp || 500;
+          const step = Math.round(base * 0.08);
+          const start = Math.round(base - 6 * step);
+          return Array.from({length: numCases}, (_, i) => Math.max(50, start + i * step));
+        };
+
+        // Build the column model: 13 preset cases + one "Current" column,
+        // ordered inline by the MAIN fuel's price. Every row renders against
+        // this so the Current column sits in price order across the whole table.
+        // insertAt = index in the preset list where current price slots in.
+        const insertAt = (mainCurPrice!=null)
+          ? mainPrices.filter(p => p < mainCurPrice).length
+          : -1;
+        // columns: {type:'preset', caseIdx} | {type:'current'}
+        const columns = [];
+        for (let i=0;i<numCases;i++){
+          if(i===insertAt) columns.push({type:'current'});
+          columns.push({type:'preset', caseIdx:i});
+        }
+        if(insertAt>=numCases || insertAt===-1 && mainCurPrice!=null) columns.push({type:'current'});
+
+        const heatBg = (v) => {
+          if(v==null) return {bg:'',cl:'var(--ink3)'};
+          if(v<=1.5) return {bg:'#D1FAE5',cl:'#065F46'};
+          if(v<=3)   return {bg:'#FEF3C7',cl:'#92400E'};
+          return {bg:'#FEE2E2',cl:'#991B1B'};
+        };
+        const num = (v) => typeof v === 'number' ? v : null;
+
+        // Renders one heatmap. caseKey picks which per-ESD array to read;
+        // overallArr is the fleet-level per-scenario Overall row;
+        // curEsdKey / overallCur read the exact real-price (Current) values.
+        const renderTable = (caseKey, overallArr, curEsdKey, overallCur) => (
+          <table style={{borderCollapse:'collapse',fontSize:10.5,width:'100%'}}>
+            <thead>
+              <tr style={{background:'#1D9E75'}}>
+                <th style={{padding:'6px 10px',textAlign:'left',fontWeight:600,fontSize:10,color:'#fff',minWidth:200}}>Case #</th>
+                {columns.map((col,ci)=>col.type==='current'
+                  ? <th key={ci} style={{padding:'6px 8px',textAlign:'center',fontWeight:700,fontSize:10,color:'#92400E',background:'#FDE68A'}}>Current</th>
+                  : <th key={ci} style={{padding:'6px 8px',textAlign:'center',fontWeight:700,fontSize:10,color:'#fff'}}>{col.caseIdx+1}</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {/* Bunker cost rows for ALL fuel types */}
+              {allFuels.map((fuelType) => {
+                const fPrices  = ranges[fuelType] || generatePriceRange(fuelType, priceOf(fuelType));
+                const fCurPrice= sens.current_fuel_prices?.[fuelType] ?? priceOf(fuelType);
+                return (
+                  <tr key={'bc-'+fuelType} style={{background:'#FEF3C7'}}>
+                    <td style={{padding:'5px 10px',fontWeight:600,fontSize:10,color:'#1A1A1A'}}>{fuelType}</td>
+                    {columns.map((col,ci)=>col.type==='current'
+                      ? <td key={ci} style={{padding:'5px 8px',textAlign:'center',fontWeight:700,fontSize:10,color:'#1A1A1A',background:'#FDE68A'}}>{fCurPrice!=null?fCurPrice:'—'}</td>
+                      : <td key={ci} style={{padding:'5px 8px',textAlign:'center',fontWeight:600,fontSize:10,color:'#1A1A1A'}}>{fPrices[col.caseIdx]}</td>
+                    )}
+                  </tr>
+                );
+              })}
+              {/* Per-ESD payback rows */}
+              {sensItems.map((e,ri) => {
+                const curVal = num(e[curEsdKey]);
+                const cur = heatBg(curVal);
+                return (
+                  <tr key={ri} style={{borderBottom:'1px solid var(--bd)'}}>
+                    <td style={{padding:'5px 10px',fontWeight:500}}><b style={{color:'var(--ink3)',marginRight:6}}>{ri+1}</b> {e.tech_name}</td>
+                    {columns.map((col,ci)=>{
+                      if(col.type==='current'){
+                        return <td key={ci} style={{textAlign:'center',fontWeight:700,fontSize:10.5,color:cur.cl,background:cur.bg||'#FEF3C7',borderRight:'1px solid var(--bd)',outline:'2px solid #F59E0B',outlineOffset:-2}}>{curVal!=null?curVal.toFixed(1):'—'}</td>;
+                      }
+                      const v=num((e[caseKey]||[])[col.caseIdx]);
+                      const h=heatBg(v);
+                      return <td key={ci} style={{textAlign:'center',background:h.bg,color:h.cl,fontWeight:v!=null?600:400,fontSize:10.5,borderRight:'1px solid var(--bd)'}}>{v!=null?v.toFixed(1):'—'}</td>;
+                    })}
+                  </tr>
+                );
+              })}
+              {/* Overall row: total investment ÷ total yearly savings */}
+              <tr style={{background:'#ECFDF5',borderTop:'2px solid var(--green)'}}>
+                <td style={{padding:'6px 10px',fontWeight:700,fontSize:10.5,color:'#065F46'}}>Overall (Investment ÷ Yearly Savings)</td>
+                {columns.map((col,ci)=>{
+                  if(col.type==='current'){
+                    const cv=num(overallCur);
+                    return <td key={ci} style={{textAlign:'center',fontWeight:800,fontSize:10.5,color:'#92400E',background:'#FDE68A',borderRight:'1px solid var(--bd)'}}>{cv!=null?cv.toFixed(1):'—'}</td>;
+                  }
+                  const v=num((overallArr||[])[col.caseIdx]);
+                  return <td key={ci} style={{textAlign:'center',fontWeight:700,fontSize:10.5,color:'#065F46',borderRight:'1px solid var(--bd)'}}>{v!=null?v.toFixed(1):'—'}</td>;
+                })}
+              </tr>
+            </tbody>
+          </table>
+        );
+
+        return (
+          <>
+            <div className="card" style={{marginBottom:14}}>
+              <div className="card-hd">
+                <div>
+                  <div className="card-title">Payback Period (incl. EU Tax) as a Function of Fuel Cost</div>
+                  <div style={{fontSize:10,color:'var(--ink3)',marginTop:1}}>13 bunker price scenarios. EU savings (EUA + FuelEU) held constant — only fuel price varies. The blue "Current" column uses your exact input price.</div>
+                </div>
+              </div>
+              <div style={{overflowX:'auto',padding:'0 1px'}}>
+                {renderTable('payback_by_case', sens.overall_payback_by_case, 'current_payback_with_eu', sens.overall_current_payback)}
+              </div>
+            </div>
+            <div className="card">
+              <div className="card-hd">
+                <div>
+                  <div className="card-title">Payback Period (Fuel Cost Saving Only) as a Function of Fuel Cost</div>
+                  <div style={{fontSize:10,color:'var(--ink3)',marginTop:1}}>13 bunker price scenarios. EU savings (EUA + FuelEU) excluded — payback from fuel cost savings alone. The blue "Current" column uses your exact input price.</div>
+                </div>
+              </div>
+              <div style={{overflowX:'auto',padding:'0 1px'}}>
+                {renderTable('payback_fuel_only_by_case', sens.overall_payback_fuel_only_by_case, 'current_payback_fuel_only', sens.overall_current_payback_fuel_only)}
+              </div>
+            </div>
+          </>
+        );
+      })()}
+      
       <div className="card" style={{marginBottom:14}}>
         <div className="card-hd">
           <span className="card-title">Annual Savings Split</span>
@@ -178,85 +321,37 @@ function EsdTab({ out }) {
           })}
         </div>
       </div>
-      {sensItems.length>0&&(
-        <div className="card">
-          <div className="card-hd">
-            <div>
-              <div className="card-title">Payback Period (incl. EU Tax) as a Function of Fuel Cost</div>
-              <div style={{fontSize:10,color:'var(--ink3)',marginTop:1}}>13 bunker price scenarios. EU savings (EUA + FuelEU) held constant — only fuel price varies. Highlighted column = current input price.</div>
-            </div>
+      
           </div>
-          <div style={{overflowX:'auto',padding:'0 1px'}}>
-            {(() => {
-              // Collect ALL unique fuel types from machines (not just ESD-active fuels)
-              const allMachineFuels = [...new Set(
-                (out?.input?.machines || []).flatMap(m => (m.fuel_particulars || []).map(fp => fp.fuel_name))
-              )];
-              // Merge with activeFuels from sensitivity data (in case sensitivity has fuels machines don't)
-              const allFuels = [...new Set([...allMachineFuels, ...activeFuels])];
-              
-              const mainFuel = activeFuels[0] || allFuels[0] || 'HFO';
-              const mainPrices = ranges[mainFuel] || [];
-              const numCases = mainPrices.length || 13;
-              const mainCurPrice = out?.input?.machines?.flatMap(m=>m.fuel_particulars||[]).find(fp=>fp.fuel_name===mainFuel)?.fuel_price_usd_per_mt;
-              const mainCurIdx = mainPrices.indexOf(mainCurPrice);
-              
-              // Generate price ranges for fuels not in sensitivity data
-              const generatePriceRange = (fuelName, curPrice) => {
-                const base = curPrice || 500;
-                const step = Math.round(base * 0.08); // ~8% increments
-                const start = Math.round(base - 6 * step);
-                return Array.from({length: numCases}, (_, i) => Math.max(50, start + i * step));
-              };
-              
-              return (
-                <table style={{borderCollapse:'collapse',fontSize:10.5,width:'100%'}}>
-                  <thead>
-                    <tr style={{background:'#1D9E75'}}>
-                      <th style={{padding:'6px 10px',textAlign:'left',fontWeight:600,fontSize:10,color:'#fff',minWidth:200}}>Case #</th>
-                      {mainPrices.map((p,i)=><th key={i} style={{padding:'6px 8px',textAlign:'center',fontWeight:700,fontSize:10,color:'#fff',background:i===mainCurIdx?'#D97706':undefined}}>{i+1}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {/* Bunker cost rows for ALL fuel types */}
-                    {allFuels.map((fuelType,fi) => {
-                      const fPrices = ranges[fuelType] || generatePriceRange(fuelType, 
-                        out?.input?.machines?.flatMap(m=>m.fuel_particulars||[]).find(fp=>fp.fuel_name===fuelType)?.fuel_price_usd_per_mt
-                      );
-                      const fCurPrice = out?.input?.machines?.flatMap(m=>m.fuel_particulars||[]).find(fp=>fp.fuel_name===fuelType)?.fuel_price_usd_per_mt;
-                      const fCurIdx = fPrices.indexOf(fCurPrice) >= 0 ? fPrices.indexOf(fCurPrice) : fPrices.findIndex(p => p >= (fCurPrice||0));
-                      return (
-                        <tr key={'bc-'+fuelType} style={{background:'#FEF3C7'}}>
-                          <td style={{padding:'5px 10px',fontWeight:600,fontSize:10,color:'#D97706'}}>{fuelType}</td>
-                          {fPrices.slice(0, numCases).map((p,i) => 
-                            <td key={i} style={{padding:'5px 8px',textAlign:'center',fontWeight:600,fontSize:10,color:'#1A1A1A',background:i===fCurIdx?'#FDE68A':undefined}}>{p}</td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                    {/* All ESDs in one list */}
-                    {sensItems.map((e,ri) => {
-                      const fPrices = ranges[e.primary_fuel] || mainPrices;
-                      const fCurPrice = out?.input?.machines?.flatMap(m=>m.fuel_particulars||[]).find(fp=>fp.fuel_name===e.primary_fuel)?.fuel_price_usd_per_mt;
-                      const fCurIdx = fPrices.indexOf(fCurPrice);
-                      return (
-                        <tr key={ri} style={{borderBottom:'1px solid var(--bd)'}}>
-                          <td style={{padding:'5px 10px',fontWeight:500}}><b style={{color:'var(--ink3)',marginRight:6}}>{ri+1}</b> {e.tech_name}</td>
-                          {(e.payback_by_case||[]).map((v,ci)=>{
-                            let bg='',cl='';
-                            if(v!=null){if(v<=1.5){bg='#D1FAE5';cl='#065F46';}else if(v<=3){bg='#FEF3C7';cl='#92400E';}else{bg='#FEE2E2';cl='#991B1B';}}
-                            return <td key={ci} style={{textAlign:'center',background:ci===fCurIdx?(bg||'#FEF3C7'):bg,color:cl||'var(--ink3)',fontWeight:v!=null?600:400,fontSize:10.5,borderRight:'1px solid var(--bd)',outline:ci===fCurIdx?'2px solid #D97706':'none',outlineOffset:-2}}>{v!=null?v.toFixed(1):'—'}</td>;
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              );
-            })()}
+  );
+}
+
+// ── ESD Schedule Info (hover tooltip on graph headers) ──────────────────
+// Shows the dynamic ESD implementation schedule from the timeline data.
+function EsdScheduleInfo({ timeline }) {
+  const [open, setOpen] = useState(false);
+  if (!timeline || timeline.length === 0) return null;
+  return (
+    <span
+      style={{position:'relative',display:'inline-flex',alignItems:'center'}}
+      onMouseEnter={()=>setOpen(true)}
+      onMouseLeave={()=>setOpen(false)}
+    >
+      <span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:16,height:16,borderRadius:'50%',background:'#EFF6FF',color:'#1D4ED8',fontSize:10,fontWeight:700,fontStyle:'italic',cursor:'help',border:'1px solid #BFDBFE'}}>i</span>
+      {open&&(
+        <div style={{position:'absolute',top:'calc(100% + 6px)',right:0,zIndex:20,minWidth:220,background:'#fff',border:'1px solid var(--bd)',borderRadius:6,boxShadow:'0 4px 16px rgba(0,0,0,.12)',padding:'10px 12px'}}>
+          <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.4px',color:'var(--ink3)',marginBottom:6}}>ESD Implementation Schedule</div>
+          <div style={{display:'flex',flexDirection:'column',gap:5}}>
+            {timeline.map((t,i)=>(
+              <div key={i} style={{display:'flex',justifyContent:'space-between',gap:12,fontSize:10.5,alignItems:'baseline'}}>
+                <span style={{color:'var(--ink2)'}}><b style={{color:'#92400E',fontFamily:'IBM Plex Mono,monospace',marginRight:6}}>{t.implementation_label}</b>{t.name}</span>
+                <span style={{color:'var(--green)',fontWeight:600,whiteSpace:'nowrap'}}>+{t.saving_pct}%</span>
+              </div>
+            ))}
           </div>
         </div>
-      )}    </div>
+      )}
+    </span>
   );
 }
 
@@ -478,22 +573,13 @@ function CiiTab({ out }) {
       <div className="g2" style={{marginBottom:14}}>
         <div className="card"><div className="card-hd"><span className="card-title">Graph 1 — Baseline CII</span><span className="bv bv-g">No ESDs</span></div>
           <div className="card-body"><div className="ch h360"><canvas id="sim-g1"></canvas></div></div></div>
-        <div className="card"><div className="card-hd"><span className="card-title">Graph 3 — With ESD Rollout</span><span style={{background:'#EFF6FF',color:'#1D4ED8',fontSize:10,fontWeight:600,padding:'2px 7px',borderRadius:3}}>Step-down as ESDs install</span></div>
+        <div className="card"><div className="card-hd"><span className="card-title">Graph 3 — With ESD Rollout</span><EsdScheduleInfo timeline={esdTimeline}/></div>
           <div className="card-body"><div className="ch h360"><canvas id="sim-g3"></canvas></div></div></div>
+        <div className="card"><div className="card-hd"><span className="card-title">Graph 2 — Sailing Profile Scenarios</span></div>
+          <div className="card-body"><div className="ch h360"><canvas id="sim-g2"></canvas></div></div></div>
+        <div className="card"><div className="card-hd"><span className="card-title">Graph 4 — Sailing + ESD Combined</span><EsdScheduleInfo timeline={esdTimeline}/></div>
+          <div className="card-body"><div className="ch h360"><canvas id="sim-g4"></canvas></div></div></div>
       </div>
-      <div className="card" style={{marginBottom:14}}><div className="card-hd"><span className="card-title">Graph 2 — Sailing Profile Scenarios</span></div>
-        <div className="card-body"><div className="ch h400"><canvas id="sim-g2"></canvas></div></div></div>
-      <div className="card"><div className="card-hd"><span className="card-title">Graph 4 — Sailing + ESD Combined</span></div>
-        <div className="card-body"><div className="ch h400"><canvas id="sim-g4"></canvas></div></div></div>
-      {esdTimeline.length>0&&(
-        <div style={{marginTop:10,display:'flex',flexWrap:'wrap',gap:6,fontSize:10,color:'var(--ink3)'}}>
-          {esdTimeline.map((t,i)=>(
-            <span key={i} style={{background:'#FEF3C7',color:'#92400E',padding:'2px 7px',borderRadius:3,fontWeight:500}}>
-              {t.implementation_label}: {t.name} (+{t.saving_pct}%)
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -509,17 +595,17 @@ function FinancialTab({ out }) {
 
   useEffect(()=>{
     if(!window.Chart) return;
-    const fmtM=v=>{if(Math.abs(v)>=1e6)return'$'+(v/1e6).toFixed(1)+'M';if(Math.abs(v)>=1e3)return'$'+(v/1e3).toFixed(0)+'K';return'$'+v;};
+    const fmtM=v=>{const sign=v<0?'-':'';const av=Math.abs(v);if(av>=1e6)return sign+'$'+(av/1e6).toFixed(1)+'M';if(av>=1e3)return sign+'$'+(av/1e3).toFixed(0)+'K';return sign+'$'+av;};
 
     // ── 1. Investment Overview bar chart ──────────────────────────────
     if(overviewRef.current) {
       if(chartsRef.current.overview){try{chartsRef.current.overview.destroy();}catch(e){}}
       chartsRef.current.overview = new window.Chart(overviewRef.current,{type:'bar',data:{
-        labels:['Total Cost','Accumulated\nSavings','NPV','Savings PV'],
+        labels:['Investment','Accumulated\nSavings','NPV','Savings PV'],
         datasets:[{
           label:'Amount (USD)',
           data:[
-            sum.total_investment_usd || 0,
+            -(sum.total_investment_usd || 0),
             sum.accumulated_savings_usd || 0,
             sum.npv_usd || 0,
             sum.savings_pv_usd || 0,
@@ -653,12 +739,22 @@ function EuTaxTab({ out }) {
 
   return(
     <div className="rwrap">
-      <div className="pen-bar" style={{marginBottom:14}}>
-        <div className="pen-item"><div className="pen-l">EUA Cost</div><div className="pen-v r">{fmt$(ps.total_eua_cost_usd)}</div><div className="pen-s">{fmtN(eua.total_eua_units,0)} units × ${inp.voyage_meta?.eua_cost_usd||75}</div></div>
-        <div className="pen-div"></div>
-        <div className="pen-item"><div className="pen-l">FuelEU Penalty</div><div className="pen-v r">{fmt$(ps.total_fuel_eu_penalty_usd)}</div><div className="pen-s">GHG {feu.ghg_intensity_total?.toFixed(2)} vs target {feu.ghg_target?.toFixed(2)}</div></div>
-        <div className="pen-div"></div>
-        <div className="pen-item"><div className="pen-l">Total EU Compliance</div><div className="pen-v r">{fmt$(ps.total_eu_compliance_cost_usd)}</div><div className="pen-s">EUA + FuelEU / year</div></div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:14}}>
+        <div className="card" style={{padding:'12px 16px'}}>
+          <div className="pen-l">EUA Cost</div>
+          <div className="pen-v r">{fmt$(ps.total_eua_cost_usd)}</div>
+          <div className="pen-s">{fmtN(eua.total_eua_units,0)} units × ${inp.voyage_meta?.eua_cost_usd||75}</div>
+        </div>
+        <div className="card" style={{padding:'12px 16px'}}>
+          <div className="pen-l">FuelEU Penalty</div>
+          <div className="pen-v r">{fmt$(ps.total_fuel_eu_penalty_usd)}</div>
+          <div className="pen-s">GHG {feu.ghg_intensity_total?.toFixed(2)} vs target {feu.ghg_target?.toFixed(2)}</div>
+        </div>
+        <div className="card" style={{padding:'12px 16px'}}>
+          <div className="pen-l">Total EU Compliance</div>
+          <div className="pen-v r">{fmt$(ps.total_eu_compliance_cost_usd)}</div>
+          <div className="pen-s">EUA + FuelEU / year</div>
+        </div>
       </div>
       <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'.4px',color:'var(--blue)',marginBottom:8,display:'flex',alignItems:'center',gap:8}}>
         <span style={{width:12,height:12,background:'var(--blue)',borderRadius:2,display:'inline-block'}}></span>
@@ -694,7 +790,7 @@ function EuTaxTab({ out }) {
         FuelEU Maritime — Year-by-Year Projection
         <span style={{fontSize:9,fontWeight:400,color:'var(--ink3)',textTransform:'none',letterSpacing:0}}>Penalty and ESD savings both scale as IMO targets tighten</span>
       </div>
-      <div className="g2" style={{marginBottom:14}}>
+      <div style={{marginBottom:14}}>
         <div className="card"><div className="card-hd"><span className="card-title">GHG Intensity Analysis</span><span className={`bx ${feu.compliant===false?'bx-r':'bx-g'}`}>{feu.compliant===false?'Non-Compliant':'Compliant'}</span></div>
           <div className="card-body">
             <div className="g2" style={{marginBottom:14}}>
@@ -712,7 +808,7 @@ function EuTaxTab({ out }) {
             <tbody>
               <tr><td>GHG Target</td><td className="r" style={{color:'var(--green)'}}>{feu.ghg_target?.toFixed(4)} gCO₂eq/MJ</td></tr>
               <tr><td>Actual GHG (WTT {feu.ghg_intensity_wtt?.toFixed(2)} + TTW {feu.ghg_intensity_ttw?.toFixed(2)})</td><td className="r" style={{color:'var(--red)'}}>{feu.ghg_intensity_total?.toFixed(4)} gCO₂eq/MJ</td></tr>
-              <tr><td>Carbon Balance (cb)</td><td className="r" style={{color:'var(--red)'}}>{feu.carbon_balance!=null?Math.round(feu.carbon_balance).toLocaleString():'—'}</td></tr>
+              <tr><td>Carbon Balance (CB)</td><td className="r" style={{color:'var(--red)'}}>{feu.carbon_balance!=null?Math.round(feu.carbon_balance).toLocaleString():'—'}</td></tr>
               <tr><td>EU Voyage Share</td><td className="r">{feu.eu_voyages_percent}%</td></tr>
               <tr><td>Penalty Rate</td><td className="r">€2,400 / tCO₂eq</td></tr>
               <tr><td>EUR → USD</td><td className="r">1.08</td></tr>
@@ -720,34 +816,14 @@ function EuTaxTab({ out }) {
             </tbody></table>
           </div>
         </div>
-        <div className="card"><div className="card-hd"><span className="card-title">FuelEU Scaling by Target Period</span></div>
-          <div className="card-body">
-            <div style={{background:'var(--gl)',borderRadius:6,padding:'9px 12px',fontSize:10,color:'var(--gd)',marginBottom:12}}>
-              <b>Why does the penalty grow?</b> As IMO targets drop each year, this vessel becomes <i>more</i> non-compliant. Each tonne of fuel saved by ESDs avoids a proportionally <i>larger</i> penalty.
-            </div>
-            <table className="tbl"><thead><tr><th>Period</th><th className="r">IMO Target</th><th className="r">Vessel Excess</th><th className="r">Scale Factor</th><th className="r">Annual Penalty</th><th className="r">ESD Savings</th><th className="r">Net Penalty</th></tr></thead>
-            <tbody>
-              {[
-                {period:'2025-2029',target:89.34,excess:'+2.04',scale:'1.00',penalty:yearly.find(r=>r.scale<=1),color:''},
-                {period:'2030-2034',target:85.69,excess:'+5.69',scale:'2.79',penalty:yearly.find(r=>r.scale>1),color:'#EFF6FF'},
-              ].filter(r=>r.penalty).map((r,i)=>(
-                <tr key={i} style={{background:r.color}}>
-                  <td>{r.period}</td>
-                  <td className="r" style={{color:r.scale==='1.00'?'var(--green)':'var(--amber)'}}>{r.target.toFixed(4)}</td>
-                  <td className="r" style={{color:'var(--red)'}}>{r.excess}</td>
-                  <td className="r" style={{color:r.scale!=='1.00'?'var(--blue)':''}}><b>{r.scale}×</b></td>
-                  <td className="r" style={{color:'var(--red)'}}>{fmt$(r.penalty?.vessel_penalty_usd)}</td>
-                  <td className="r" style={{color:'var(--green)'}}>{fmt$(r.penalty?.esd_savings_usd)}</td>
-                  <td className="r">{fmt$(r.penalty?.net_penalty_usd)}</td>
-                </tr>
-              ))}
-            </tbody></table>
-          </div>
-        </div>
       </div>
       {yearly.length>0&&(
         <div className="card"><div className="card-hd">
           <div><div className="card-title">Year-by-Year FuelEU Projection</div><div style={{fontSize:10,color:'var(--ink3)',marginTop:1}}>Annual penalty + ESD savings per year.</div></div>
+        </div>
+        <div className="card-body">
+        <div style={{background:'var(--gl)',borderRadius:6,padding:'9px 12px',fontSize:10,color:'var(--gd)',marginBottom:12}}>
+          <b>Why does the penalty grow?</b> As IMO targets drop each year, this vessel becomes <i>more</i> non-compliant. Each tonne of fuel saved by ESDs avoids a proportionally <i>larger</i> penalty.
         </div>
         <div style={{overflowX:'auto'}}>
         <table className="tbl"><thead><tr><th>Year</th><th className="r">IMO Target</th><th className="r">Excess</th><th className="r">Scale</th><th className="r">Vessel Penalty</th><th className="r">ESD Savings</th><th className="r">Net Penalty</th><th className="r">Cumul. Penalty</th><th className="r">Cumul. Savings</th></tr></thead>
@@ -766,7 +842,7 @@ function EuTaxTab({ out }) {
             </tr>
           ))}
           {yearly.length>0&&(
-            <tr style={{background:'var(--ink)',color:'#fff'}}>
+            <tr style={{background:'var(--blue)',color:'#080808'}}>
               <td><b>Total ({yearly[0]?.year}–{yearly[yearly.length-1]?.year})</b></td>
               <td className="r">—</td><td className="r">—</td><td className="r">—</td>
               <td className="r" style={{color:'#FCA5A5'}}><b>{fmt$(yearly.reduce((s,r)=>s+r.vessel_penalty_usd,0))}</b></td>
@@ -776,7 +852,7 @@ function EuTaxTab({ out }) {
             </tr>
           )}
         </tbody></table>
-        </div></div>
+        </div></div></div>
       )}
     </div>
   );
@@ -1050,11 +1126,7 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
           <div style={{display:'flex',gap:8,alignItems:'center',marginLeft:reportData?12:'auto'}}>
               {reportData&&(
             <div style={{display:'flex',gap:74,alignItems:'center'}}>
-              <div style={{textAlign:'right'}}>
-                <div style={{fontSize:9,color:'var(--ink3)',textTransform:'uppercase',letterSpacing:'.3px'}}>EU Compliance Cost</div>
-                <div style={{fontSize:16,fontWeight:600,color:'var(--red)',fontFamily:'IBM Plex Mono,monospace'}}>{fmt$(ps.total_eu_compliance_cost_usd)}</div>
-                <div style={{fontSize:9,color:'var(--ink3)'}}>EUA + FuelEU / yr</div>
-              </div>
+             
               <div style={{textAlign:'right', marginRight: 12}}>
                 <div style={{fontSize:9,color:'var(--ink3)',textTransform:'uppercase',letterSpacing:'.3px'}}>ESD Annual Savings</div>
                 <div style={{fontSize:16,fontWeight:600,color:'var(--green)',fontFamily:'IBM Plex Mono,monospace'}}>{fmt$(esdSum)}</div>

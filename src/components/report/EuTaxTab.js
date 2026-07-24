@@ -143,7 +143,7 @@ export default function EuTaxTab({ output }) {
                 <tbody>
                   <tr><td>GHG Target</td><td className="right" style={{ color: '#1D9E75' }}>{feu.ghg_target?.toFixed(4)} gCO₂eq/MJ</td></tr>
                   <tr><td>Actual GHG (WTT {feu.ghg_intensity_wtt?.toFixed(4)} + TTW {feu.ghg_intensity_ttw?.toFixed(4)})</td><td className="right" style={{ color: '#EF4444' }}>{feu.ghg_intensity_total?.toFixed(4)} gCO₂eq/MJ</td></tr>
-                  <tr><td>Carbon Balance (cb)</td><td className="right" style={{ color: '#EF4444' }}>{feu.carbon_balance != null ? Math.round(feu.carbon_balance).toLocaleString() : '—'}</td></tr>
+                  <tr><td>Carbon Balance (CB)</td><td className="right" style={{ color: '#EF4444' }}>{feu.carbon_balance != null ? Math.round(feu.carbon_balance).toLocaleString() : '—'}</td></tr>
                   <tr><td>EU Voyage Share</td><td className="right">{feu.eu_voyages_percent}%</td></tr>
                   <tr><td>Penalty Rate</td><td className="right">€2,400 / tCO₂eq</td></tr>
                   <tr><td>EUR → USD</td><td className="right">1.08</td></tr>
