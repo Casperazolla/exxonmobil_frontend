@@ -703,9 +703,8 @@ function Tracker({ userEmail, onLogout }) {
             <path d="M4 13 L6 17 L16 17 L18 13" stroke="white" stroke-width="1.2" fill="rgba(255,255,255,.15)" stroke-linejoin="round" />
             <ellipse cx="6" cy="15.5" rx="1.5" ry="1.5" fill="white" opacity=".6" />
           </svg> */}
-              <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-
-          <span>Azolla ESD Platform</span>
+         <img src="/Swoosh.png" alt="Azolla Logo" style={{ width: 22, height: 22, marginBottom: 4 }} />
+          <span>AZOLLA ESD PLATFORM</span>
           <span className="nav-badge">Decarbonisation Suite</span>
         </a>
         <div className="nav-tabs">

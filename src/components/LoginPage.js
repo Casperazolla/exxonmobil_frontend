@@ -161,9 +161,9 @@ function LoginPage({ onLoginSuccess }) {
     <div className="login-wrapper">
       <div className="login-card">
         <div className="login-brand">
-          <div className="brand-logo">🚢</div>
+          <div className="brand-logo"><img src="/Swoosh.png" alt="AZOLLA Logo" style={{width: "22px", height: "22px"}} /></div>
           <div>
-            <div className="brand-title">Azolla ESD Platform</div>
+            <div className="brand-title">AZOLLA ESD PLATFORM</div>
             <div className="brand-sub">Decarbonisation Suite</div>
           </div>
         </div>
@@ -215,207 +215,12 @@ function LoginPage({ onLoginSuccess }) {
               {loading ? ' Signing in...' : '→ Sign In'}
             </button>
 
-            <div
-              style={{
-                textAlign: 'center',
-                marginTop: '12px',
-                fontSize: '14px',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              Don't have an account?{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthStep('signup');
-                  setError('');
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-primary)',
-                  textDecoration: 'underline',
-                  cursor: 'pointer',
-                }}
-              >
-                Sign up
-              </button>
-            </div>
+          
           </form>
         )}
 
-        {/* SIGNUP FORM */}
-        {authStep === 'signup' && (
-          <form onSubmit={handleSignup} className="login-form">
-            <div className="form-section-title">Create Account</div>
-
-            <div className="form-group">
-              <label htmlFor="signup-email" className="form-label">
-                Email Address
-              </label>
-              <input
-                id="signup-email"
-                type="email"
-                className="form-input"
-                placeholder="user@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-                autoComplete="email"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="signup-fname" className="form-label">
-                First Name
-              </label>
-              <input
-                id="signup-fname"
-                type="text"
-                className="form-input"
-                placeholder="John"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="signup-lname" className="form-label">
-                Last Name
-              </label>
-              <input
-                id="signup-lname"
-                type="text"
-                className="form-input"
-                placeholder="Doe"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="signup-password" className="form-label">
-                Password
-              </label>
-              <input
-                id="signup-password"
-                type="password"
-                className="form-input"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                autoComplete="new-password"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading}
-            >
-              {loading ? ' Creating account...' : '→ Sign Up'}
-            </button>
-
-            <div
-              style={{
-                textAlign: 'center',
-                marginTop: '12px',
-                fontSize: '14px',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              Already have an account?{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthStep('login');
-                  setError('');
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-primary)',
-                  textDecoration: 'underline',
-                  cursor: 'pointer',
-                }}
-              >
-                Sign in
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* OTP VERIFICATION FORM */}
-        {authStep === 'verify' && (
-          <form onSubmit={handleVerifyOtp} className="login-form">
-            <div className="form-section-title">Verify OTP</div>
-            <div
-              style={{
-                fontSize: '13px',
-                color: 'var(--text-secondary)',
-                marginBottom: '16px',
-              }}
-            >
-              Enter the 6-digit code sent to {signupEmail}
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="otp-input" className="form-label">
-                OTP Code
-              </label>
-              <input
-                id="otp-input"
-                type="text"
-                className="form-input"
-                placeholder="000000"
-                value={otp}
-                onChange={(e) =>
-                  setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
-                }
-                disabled={loading}
-                maxLength="6"
-                autoComplete="off"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading}
-            >
-              {loading ? '🔄 Verifying...' : '→ Verify'}
-            </button>
-
-            <div
-              style={{
-                textAlign: 'center',
-                marginTop: '12px',
-                fontSize: '14px',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthStep('signup');
-                  setError('');
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-primary)',
-                  textDecoration: 'underline',
-                  cursor: 'pointer',
-                }}
-              >
-                Back to sign up
-              </button>
-            </div>
-          </form>
-        )}
+      
+      
 
         
       </div>
