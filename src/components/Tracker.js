@@ -164,15 +164,6 @@ function Tracker({ userEmail, onLogout }) {
   };
 
 
-  const toggleESD = (id) => {
-    setSelectedEsds(prev =>
-      prev.includes(id)
-        ? prev.filter(item => item !== id)
-        : [...prev, id]
-    );
-  };
-
-
   const closeModal = () => {
     setModalOpen(false);
     setEditingId(null);
@@ -355,9 +346,9 @@ function Tracker({ userEmail, onLogout }) {
       return;
     }
 
-    const selectedEsdObjects = selectedEsds
-      .map(id => ESD_LIBRARY.find(esd => esd.id === id))
-      .filter(Boolean);
+    // selectedEsds already holds full ESD objects (merged in by toggleEsd),
+    // not bare IDs — no need to re-look them up in ESD_LIBRARY here.
+    const selectedEsdObjects = selectedEsds.filter(Boolean);
 
     const payload = {
 
@@ -618,10 +609,6 @@ function Tracker({ userEmail, onLogout }) {
   };
 
   const getSimulatingVessel = () => vessels.find(v => v.id === simulatingId);
-
-  const selectedEsdObjects = selectedEsds.map(id =>
-    ESD_LIBRARY.find(e => e.id === id)
-  ).filter(Boolean);
 
   // Financial calculations
   const totalCapex =
