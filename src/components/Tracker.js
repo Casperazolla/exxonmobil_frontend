@@ -853,7 +853,7 @@ function Tracker({ userEmail, onLogout }) {
       {/* ===== MODAL: Start Session ===== */}
       {sessionModalOpen && (
         <div className="modal-overlay" onClick={()=>setSessionModalOpen(false)}>
-          <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:'min(480px, 90vw)',width:'100%',maxHeight:'90vh', minHeight:'55vh',overflowY:'auto',margin:'5vh auto'}}>
+          <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:'min(480px, 90vw)',width:'100%',maxHeight:'90vh', minHeight:'45vh',overflowY:'auto',margin:'5vh auto'}}>
             <div style={{padding:'clamp(14px, 3vw, 20px) clamp(16px, 3vw, 24px)'}}>
               <div style={{fontSize:16,fontWeight:600,marginBottom:2}}>Start Simulation Session</div>
               <div style={{fontSize:11,color:'var(--ink3)',marginBottom:14}}>
@@ -912,8 +912,8 @@ function Tracker({ userEmail, onLogout }) {
 
       {/* ===== MODAL: Onboard Vessel ===== */}
       {modalOpen && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay"  onClick={closeModal}>
+          <div className="modal" style={{height: "90vh"}} onClick={(e) => e.stopPropagation()}>
             <div className="modal-hd">
               <div>
                 <div style={{ fontSize: '14px', fontWeight: '600' }}>
