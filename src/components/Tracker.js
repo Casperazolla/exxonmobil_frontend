@@ -1274,13 +1274,13 @@ function Tracker({ userEmail, onLogout }) {
                         >
 
                           <Select
-                            value={fuel.fuel_name}
+                            value={fuel.fuelName}
                             placeholder="Select fuel"
 
                             listHeight={280}
                             virtual={false}
                             getPopupContainer={() => document.body}
-                            onChange={(value) => updateFuel(fuel.id, 'fuel_name', value)}
+                            onChange={(value) => updateFuel(machineIndex, fuelIndex, 'fuelName', value)}
                           >
                             <Option value="HFO">HFO</Option>
                             <Option value="VLSFO">VLSFO</Option>
