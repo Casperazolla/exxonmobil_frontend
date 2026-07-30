@@ -638,7 +638,10 @@ function FinancialTab({ out }) {
     if(cashRef.current) {
       const cf = fin.monthly_cashflows||[];
       // Main line data (sampled for performance)
-      const cfPts = cf.filter((_,i)=>i%3===0||cf[i]?.is_docking).map(r=>({x:r.timeline,y:r.cumulative_cashflow}));
+      // All points so chart starts from analysis month
+      const cfPts   = cf.map(r=>({x:r.timeline, y:r.cumulative_cashflow}));
+      const xMin    = cf.length > 0 ? Math.floor(cf[0].timeline) : undefined;
+      const xMax    = cf.length > 0 ? Math.ceil(cf[cf.length-1].timeline) : undefined;
       // Docking points only (for triangle markers)
       const dockPts = cf.filter(r=>r.is_docking).map(r=>({x:r.timeline,y:r.cumulative_cashflow}));
 
@@ -666,7 +669,7 @@ function FinancialTab({ out }) {
               {text:'▲ Docking',fillStyle:'#D97706',strokeStyle:'#92400E',lineWidth:1,pointStyle:'triangle'},
             ]
           }}},
-          scales:{x:{type:'linear',grid:{display:false},ticks:{font:{size:10},callback:v=>v.toFixed(0)}},y:{grid:{color:'rgba(0,0,0,.04)',drawBorder:false},ticks:{font:{size:10},callback:fmtM}}}
+          scales:{x:{type:'linear',min:xMin,max:xMax,grid:{display:false},ticks:{font:{size:10},callback:v=>v.toFixed(0)}},y:{grid:{color:'rgba(0,0,0,.04)',drawBorder:false},ticks:{font:{size:10},callback:fmtM}}}
         }
       });
     }
@@ -878,6 +881,18 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
   const [machines,       setMachines]       = useState([]);
   const [esds,           setEsds]           = useState([]);
 
+  // Extended voyage / financial params (editable in sidebar)
+  const [distanceNm,      setDistanceNm]      = useState(60000);
+  const [euVoyagePct,     setEuVoyagePct]     = useState(30);
+  const [dockingMonth,    setDockingMonth]     = useState('');
+  const [dockingYear,     setDockingYear]      = useState('');
+  const [commonImplMonth, setCommonImplMonth]  = useState('');
+  const [commonImplYear,  setCommonImplYear]   = useState('');
+  const [vesselLifeYears, setVesselLifeYears]  = useState(25);
+  const [vesselEndYear,   setVesselEndYear]    = useState('');
+  const [vesselEndMonth,  setVesselEndMonth]   = useState('');
+  const [discountRate,    setDiscountRate]     = useState(0.10);
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const mark = () => setEditCount(c=>c+1);
@@ -890,6 +905,16 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
     setSailingDays(vm.sailing_days_per_year || 200);
     setNonSailingDays(vm.non_steaming_days_per_year || 165);
     setEuaCost(vm.eua_cost_usd || 75);
+    setDistanceNm(vm.distance_nm || 60000);
+    setEuVoyagePct(vm.eu_voyages_percent || 30);
+    setDockingMonth(vm.docking_month || '');
+    setDockingYear(vm.docking_year || '');
+    setCommonImplMonth(vm.common_impl_month || '');
+    setCommonImplYear(vm.common_impl_year || '');
+    setVesselLifeYears(inp.vessel_life_years || 25);
+    setVesselEndYear(inp.vessel_end_year || '');
+    setVesselEndMonth(inp.vessel_end_month || '');
+    setDiscountRate(inp.discount_rate || 0.10);
     setMachines((inp.machines || []).map(m => ({
       machine_name: m.machine_name,
       fuel_particulars: (m.fuel_particulars || []).map(fp => ({
@@ -960,11 +985,21 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
       vessel: vesselMeta.vessel,
       voyage_meta: {
         ...vesselMeta.voyage_meta,
-        sailing_days_per_year: sailingDays,
-        non_steaming_days_per_year: nonSailingDays,
-        eua_cost_usd: euaCost,
+        sailing_days_per_year:       sailingDays,
+        non_steaming_days_per_year:  nonSailingDays,
+        eua_cost_usd:                euaCost,
+        distance_nm:                 distanceNm,
+        eu_voyages_percent:          euVoyagePct,
+        docking_month:               dockingMonth ? Number(dockingMonth) : vesselMeta.voyage_meta?.docking_month,
+        docking_year:                dockingYear  ? Number(dockingYear)  : undefined,
+        common_impl_month:           commonImplMonth ? Number(commonImplMonth) : undefined,
+        common_impl_year:            commonImplYear  ? Number(commonImplYear)  : undefined,
       },
       machines,
+      vessel_life_years: vesselLifeYears,
+      vessel_end_year:   vesselEndYear  ? Number(vesselEndYear)  : undefined,
+      vessel_end_month:  vesselEndMonth ? Number(vesselEndMonth) : undefined,
+      discount_rate:     discountRate,
     };
     const selectedEsds = esds.filter(e => e.selected);
 
@@ -1051,6 +1086,27 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
               <div className="sim-f"><label>Non-Sailing Days</label><input className="sim-in" type="number" value={nonSailingDays} onChange={e=>{setNonSailingDays(+e.target.value);mark();}}/></div>
             </div>
             <div className="sim-f"><label>EUA Cost (USD/t)</label><input className="sim-in" type="number" value={euaCost} onChange={e=>{setEuaCost(+e.target.value);mark();}}/></div>
+            <div className="sim-row">
+              <div className="sim-f"><label>Distance (nm)</label><input className="sim-in" type="number" value={distanceNm} onChange={e=>{setDistanceNm(+e.target.value);mark();}}/></div>
+              <div className="sim-f"><label>EU Voyage %</label><input className="sim-in" type="number" min="0" max="100" value={euVoyagePct} onChange={e=>{setEuVoyagePct(+e.target.value);mark();}}/></div>
+            </div>
+            <div className="sim-f"><label>Discount Rate</label><input className="sim-in" type="number" step="0.01" min="0" max="1" value={discountRate} onChange={e=>{setDiscountRate(+e.target.value);mark();}}/></div>
+            <div className="sim-sec-title" style={{marginTop:10,fontSize:10,color:'var(--ink3)'}}>Docking Schedule</div>
+            <div className="sim-row">
+              <div className="sim-f"><label>Docking Month</label><input className="sim-in" type="number" min="1" max="12" placeholder="1–12" value={dockingMonth} onChange={e=>{setDockingMonth(e.target.value);mark();}}/></div>
+              <div className="sim-f"><label>Docking Year</label><input className="sim-in" type="number" placeholder="e.g. 2027" value={dockingYear} onChange={e=>{setDockingYear(e.target.value);mark();}}/></div>
+            </div>
+            <div className="sim-sec-title" style={{marginTop:10,fontSize:10,color:'var(--ink3)'}}>Common ESD Implementation (optional)</div>
+            <div className="sim-row">
+              <div className="sim-f"><label>Impl. Month</label><input className="sim-in" type="number" min="1" max="12" placeholder="1–12" value={commonImplMonth} onChange={e=>{setCommonImplMonth(e.target.value);mark();}}/></div>
+              <div className="sim-f"><label>Impl. Year</label><input className="sim-in" type="number" placeholder="e.g. 2026" value={commonImplYear} onChange={e=>{setCommonImplYear(e.target.value);mark();}}/></div>
+            </div>
+            <div className="sim-sec-title" style={{marginTop:10,fontSize:10,color:'var(--ink3)'}}>Vessel Life / Charter End</div>
+            <div className="sim-row">
+              <div className="sim-f"><label>Life (years)</label><input className="sim-in" type="number" value={vesselLifeYears} onChange={e=>{setVesselLifeYears(+e.target.value);mark();}}/></div>
+              <div className="sim-f"><label>End Year</label><input className="sim-in" type="number" placeholder="e.g. 2029" value={vesselEndYear} onChange={e=>{setVesselEndYear(e.target.value);mark();}}/></div>
+            </div>
+            <div className="sim-f"><label>End Month</label><input className="sim-in" type="number" min="1" max="12" placeholder="1–12" value={vesselEndMonth} onChange={e=>{setVesselEndMonth(e.target.value);mark();}}/></div>
           </div>
 
           {/* Fuel Particulars */}

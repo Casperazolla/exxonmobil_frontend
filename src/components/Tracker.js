@@ -58,7 +58,7 @@ const mapApiVesselToLocal = (raw = {}, index = 0) => {
 
 
 
-function Tracker({ userEmail, onLogout }) {
+function Tracker({ userEmail, isAdmin = false, onLogout }) {
   const [activeTab, setActiveTab] = useState('vessels');
   const [vessels, setVessels] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
@@ -73,6 +73,41 @@ function Tracker({ userEmail, onLogout }) {
 
   const [openMenu, setOpenMenu] = useState(null);
   const [openSubMenu, setOpenSubMenu] = useState(null);
+
+  // Reports modal state
+  const [reportsModalOpen, setReportsModalOpen] = useState(false);
+  const [reportsVessel,    setReportsVessel]    = useState(null);
+  const [reportsLoading,   setReportsLoading]   = useState(false);
+  const [reportsList,      setReportsList]      = useState([]);
+
+  const openReportsModal = async (vessel) => {
+    setReportsVessel(vessel);
+    setReportsList([]);
+    setReportsModalOpen(true);
+    setReportsLoading(true);
+    try {
+      const result = await simulationAPI.listReports(vessel.id);
+      const reports = result?.data?.data || result?.data || result || [];
+      setReportsList(Array.isArray(reports) ? reports : []);
+    } catch (err) { console.warn('Could not fetch reports:', err); }
+    setReportsLoading(false);
+  };
+
+  const downloadReport = (report) => {
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = (report.report_id || 'report') + '.json';
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  const simulateFromReport = async (report, vessel) => {
+    setReportsModalOpen(false);
+    setSimulatingId(vessel.id);
+    setSessionMode('last');
+    setVesselReports([report]);
+    setSessionModalOpen(true);
+  };
 
 
   useEffect(() => {
@@ -740,9 +775,11 @@ function Tracker({ userEmail, onLogout }) {
                 <div className="sec-title">Vessel Fleet</div>
                 <div className="sec-sub">Manage and track vessels onboarded to the platform</div>
               </div>
-              <button className="btn btn-primary" onClick={() => openOnboardModal()}>
-                + Onboard Vessel
-              </button>
+              {isAdmin && (
+                <button className="btn btn-primary" onClick={() => openOnboardModal()}>
+                  + Onboard Vessel
+                </button>
+              )}
             </div>
 
             <div className="card">
@@ -799,13 +836,14 @@ function Tracker({ userEmail, onLogout }) {
                             <td>{vessel.buildYear} <span style={{fontSize:10,color:'#9CA3AF'}}>({ageYrs}yr)</span></td>
                             <td>{vessel.sailingDays || '—'} days</td>
                             <td>
-                              <div style={{ display: 'flex', gap: '4px' }}>
-                                {/* <button
+                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                <button
                                   className="btn btn-secondary btn-sm"
-                                  onClick={() => openOnboardModal(vessel.id)}
+                                  title="View all reports"
+                                  onClick={() => openReportsModal(vessel)}
                                 >
-                                  ✏️ Edit
-                                </button> */}
+                                  📋 Reports
+                                </button>
                                 <button
                                   className="btn btn-primary btn-sm"
                                   onClick={async () => {
@@ -815,12 +853,19 @@ function Tracker({ userEmail, onLogout }) {
                                 >
                                   ⚙️ Simulate
                                 </button>
-                                <button
-                                  className="btn btn-danger btn-sm"
-                                  onClick={() => deleteVessel(vessel.id)}
-                                >
-                                  🗑️
-                                </button>
+                                {/* Edit commented out
+                                {isAdmin && (
+                                  <button className="btn btn-secondary btn-sm"
+                                    onClick={() => openOnboardModal(vessel.id)}>✏️ Edit</button>
+                                )} */}
+                                
+                                  <button
+                                    className="btn btn-danger btn-sm"
+                                    onClick={() => deleteVessel(vessel.id)}
+                                  >
+                                    🗑️
+                                  </button>
+                                
                               </div>
                             </td>
                           </tr>
@@ -892,6 +937,52 @@ function Tracker({ userEmail, onLogout }) {
                   {sessionLoading ? '⏳ Loading…' : '▶ Start Session'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== MODAL: Reports List ===== */}
+      {reportsModalOpen && (
+        <div className="modal-overlay" onClick={() => setReportsModalOpen(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth:780, width:'95%'}}>
+            <div className="modal-hd">
+              <div>
+                <div style={{fontWeight:600,fontSize:15}}>Reports — {reportsVessel?.vesselName}</div>
+                <div style={{fontSize:11,color:'var(--ink3)',marginTop:2}}>All simulation reports for this vessel</div>
+              </div>
+              <button className="modal-close" onClick={() => setReportsModalOpen(false)}>✕</button>
+            </div>
+            <div className="modal-body" style={{padding:'12px 20px 20px',maxHeight:480,overflowY:'auto'}}>
+              {reportsLoading ? (
+                <div style={{textAlign:'center',padding:'32px',color:'var(--ink3)'}}>Loading reports…</div>
+              ) : reportsList.length === 0 ? (
+                <div style={{textAlign:'center',padding:'32px',color:'var(--ink3)'}}>No reports found</div>
+              ) : (
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                  <thead>
+                    <tr style={{borderBottom:'1px solid var(--border)'}}>
+                      <th style={{textAlign:'left',padding:'6px 8px',color:'var(--ink3)',fontWeight:500}}>Report ID</th>
+                      <th style={{textAlign:'left',padding:'6px 8px',color:'var(--ink3)',fontWeight:500}}>Created</th>
+                      <th style={{textAlign:'right',padding:'6px 8px',color:'var(--ink3)',fontWeight:500}}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportsList.map((report, idx) => (
+                      <tr key={report.report_id || idx} style={{borderBottom:'0.5px solid var(--border)'}}>
+                        <td style={{padding:'8px',fontFamily:'monospace',fontSize:11}}>{report.report_id || '—'}</td>
+                        <td style={{padding:'8px',color:'var(--ink3)'}}>{report.created_at ? new Date(report.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+                        <td style={{padding:'8px',textAlign:'right'}}>
+                          <div style={{display:'flex',gap:4,justifyContent:'flex-end'}}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => downloadReport(report)}>⬇ Download</button>
+                            <button className="btn btn-primary btn-sm" onClick={() => simulateFromReport(report, reportsVessel)}>⚙️ Simulate</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>
