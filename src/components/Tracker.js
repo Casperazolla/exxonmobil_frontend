@@ -157,6 +157,11 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     fC: '1.0',
     fIvse: '1.0',
     vesselLifeYears: '25',
+    vesselEndYear: '',
+    vesselEndMonth: '',
+    dockingYear: '',
+    commonImplMonth: '',
+    commonImplYear: '',
     discountRate: '0.10',
   });
 
@@ -191,6 +196,11 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         fC: '1.0',
         fIvse: '1.0',
         vesselLifeYears: '25',
+        vesselEndYear: '',
+        vesselEndMonth: '',
+        dockingYear: '',
+        commonImplMonth: '',
+        commonImplYear: '',
         discountRate: '0.10',
       });
       setEditingId(null);
@@ -406,6 +416,9 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         analysis_month: parseInt(formData.month, 10) || 0,
         analysis_year: parseInt(formData.year, 10) || 0,
         docking_month: parseInt(formData.dockMonth, 10) || 0,
+        docking_year: formData.dockingYear ? parseInt(formData.dockingYear, 10) : undefined,
+        common_impl_month: formData.commonImplMonth ? parseInt(formData.commonImplMonth, 10) : undefined,
+        common_impl_year: formData.commonImplYear ? parseInt(formData.commonImplYear, 10) : undefined,
         sailing_days_per_year: parseInt(formData.sailingDays, 10) || 200,
         non_steaming_days_per_year: parseInt(formData.nonSteamingDays, 10) || 165,
         distance_nm: parseFloat(formData.distanceNm) || 60000,
@@ -436,6 +449,8 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         installation_req: esd.installation_req || 'in_sailing',
       })),
       vessel_life_years: parseInt(formData.vesselLifeYears, 10) || 25,
+      vessel_end_year: formData.vesselEndYear ? parseInt(formData.vesselEndYear, 10) : undefined,
+      vessel_end_month: formData.vesselEndMonth ? parseInt(formData.vesselEndMonth, 10) : undefined,
       discount_rate: parseFloat(formData.discountRate) || 0.10,
     };
 
@@ -858,7 +873,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                                   <button className="btn btn-secondary btn-sm"
                                     onClick={() => openOnboardModal(vessel.id)}>✏️ Edit</button>
                                 )} */}
-                                
+                               
                                   <button
                                     className="btn btn-danger btn-sm"
                                     onClick={() => deleteVessel(vessel.id)}
@@ -1262,6 +1277,40 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                         step="0.01" min="0" max="1"
                       />
                       <div className="form-hint">For NPV (e.g. 0.10 = 10%)</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Charter End / Docking Schedule / Common Implementation */}
+              <div className="onboard-card">
+                <div className="form-section">
+                  <div className="form-section-title">📅 Charter End &amp; Implementation Schedule</div>
+                  <div className="form-grid form-grid-3">
+                    <div className="form-group">
+                      <label className="form-label">Charter End Year</label>
+                      <input type="number" name="vesselEndYear" value={formData.vesselEndYear} onChange={handleFormChange} placeholder="e.g. 2029" className="form-input" />
+                      <div className="form-hint">Leave blank to use Vessel Life</div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Charter End Month</label>
+                      <input type="number" name="vesselEndMonth" value={formData.vesselEndMonth} onChange={handleFormChange} placeholder="1–12" className="form-input" min="1" max="12" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Docking Year</label>
+                      <input type="number" name="dockingYear" value={formData.dockingYear} onChange={handleFormChange} placeholder="e.g. 2027" className="form-input" />
+                      <div className="form-hint">First scheduled docking year</div>
+                    </div>
+                  </div>
+                  <div className="form-grid form-grid-2" style={{marginTop:8}}>
+                    <div className="form-group">
+                      <label className="form-label">Common ESD Impl. Month</label>
+                      <input type="number" name="commonImplMonth" value={formData.commonImplMonth} onChange={handleFormChange} placeholder="1–12" className="form-input" min="1" max="12" />
+                      <div className="form-hint">Force all in-sailing ESDs to this month (optional)</div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Common ESD Impl. Year</label>
+                      <input type="number" name="commonImplYear" value={formData.commonImplYear} onChange={handleFormChange} placeholder="e.g. 2026" className="form-input" />
                     </div>
                   </div>
                 </div>
