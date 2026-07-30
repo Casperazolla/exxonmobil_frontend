@@ -7,24 +7,31 @@ function App() {
   // Check localStorage for existing session
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('Authorization'));
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
+  const [isAdmin,   setIsAdmin]   = useState(() => localStorage.getItem('isAdmin') === 'true');
 
-  const handleLoginSuccess = (email) => {
-    localStorage.setItem('userEmail', typeof email === 'string' ? email : email?.email || '');
-    setUserEmail(typeof email === 'string' ? email : email?.email || '');
+  const handleLoginSuccess = (data) => {
+    const email = typeof data === 'string' ? data : data?.user?.email || data?.email || '';
+    const role  = data?.user?.role || 'user';
+    localStorage.setItem('userEmail', email);
+    localStorage.setItem('isAdmin', role === 'admin' ? 'true' : 'false');
+    setUserEmail(email);
+    setIsAdmin(role === 'admin');
     setIsLoggedIn(true);
   };
 
   const handleLogout = () => {
     localStorage.removeItem('Authorization');
     localStorage.removeItem('userEmail');
+    localStorage.removeItem('isAdmin');
     setIsLoggedIn(false);
     setUserEmail('');
+    setIsAdmin(false);
   };
 
   return (
     <div className="app">
       {isLoggedIn ? (
-        <Tracker userEmail={userEmail} onLogout={handleLogout} />
+        <Tracker userEmail={userEmail} isAdmin={isAdmin} onLogout={handleLogout} />
       ) : (
         <LoginPage onLoginSuccess={handleLoginSuccess} />
       )}
