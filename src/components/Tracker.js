@@ -157,6 +157,11 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     fC: '1.0',
     fIvse: '1.0',
     vesselLifeYears: '25',
+    vesselEndYear: '',
+    vesselEndMonth: '',
+    dockingYear: '',
+    commonImplMonth: '',
+    commonImplYear: '',
     discountRate: '0.10',
   });
 
@@ -191,6 +196,11 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         fC: '1.0',
         fIvse: '1.0',
         vesselLifeYears: '25',
+        vesselEndYear: '',
+        vesselEndMonth: '',
+        dockingYear: '',
+        commonImplMonth: '',
+        commonImplYear: '',
         discountRate: '0.10',
       });
       setEditingId(null);
@@ -406,6 +416,9 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         analysis_month: parseInt(formData.month, 10) || 0,
         analysis_year: parseInt(formData.year, 10) || 0,
         docking_month: parseInt(formData.dockMonth, 10) || 0,
+        docking_year: formData.dockingYear ? parseInt(formData.dockingYear, 10) : undefined,
+        common_impl_month: formData.commonImplMonth ? parseInt(formData.commonImplMonth, 10) : undefined,
+        common_impl_year: formData.commonImplYear ? parseInt(formData.commonImplYear, 10) : undefined,
         sailing_days_per_year: parseInt(formData.sailingDays, 10) || 200,
         non_steaming_days_per_year: parseInt(formData.nonSteamingDays, 10) || 165,
         distance_nm: parseFloat(formData.distanceNm) || 60000,
@@ -432,10 +445,12 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         name: esd.name,
         efficiency_gain_percent: esd.saving || esd.efficiency_gain_percent || 0,
         cost_usd: esd.capex || esd.cost_usd || 0,
-        lead_time_months: esd.lead_time_months || 4,
+        lead_time_months: parseInt(esd.lead_time_months, 10) || 4,
         installation_req: esd.installation_req || 'in_sailing',
       })),
       vessel_life_years: parseInt(formData.vesselLifeYears, 10) || 25,
+      vessel_end_year: formData.vesselEndYear ? parseInt(formData.vesselEndYear, 10) : undefined,
+      vessel_end_month: formData.vesselEndMonth ? parseInt(formData.vesselEndMonth, 10) : undefined,
       discount_rate: parseFloat(formData.discountRate) || 0.10,
     };
 
@@ -634,6 +649,8 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         ...selected,
         efficiency_gain_percent: selected.saving,
         cost_usd: selected.capex,
+        lead_time_months: selected.lead_time_months || 4,
+        installation_req: selected.installation_req || 'in_sailing',
       }
     ]);
 
@@ -858,14 +875,14 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                                   <button className="btn btn-secondary btn-sm"
                                     onClick={() => openOnboardModal(vessel.id)}>✏️ Edit</button>
                                 )} */}
-                                
+                                {isAdmin && (
                                   <button
                                     className="btn btn-danger btn-sm"
                                     onClick={() => deleteVessel(vessel.id)}
                                   >
                                     🗑️
                                   </button>
-                                
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -1123,18 +1140,31 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                     </div>
                     <div className="form-group">
                       <label className="form-label">Classification Society <span className="req">*</span></label>
-                      <select
+                      <input
+                        list="class-society-list"
                         name="classificationSociety"
                         value={formData.classificationSociety}
                         onChange={handleFormChange}
+                        placeholder="Type or select"
                         className="form-input"
-                      >
-                        <option value="">Select</option>
-                        <option>ABS</option>
-                        <option>DNV</option>
-                        <option>Lloyds</option>
-                        <option>BV</option>
-                      </select>
+                        autoComplete="off"
+                      />
+                      <datalist id="class-society-list">
+                        <option value="ABS">American Bureau of Shipping</option>
+                        <option value="DNV">Det Norske Veritas</option>
+                        <option value="LR">Lloyd's Register</option>
+                        <option value="BV">Bureau Veritas</option>
+                        <option value="ClassNK">Nippon Kaiji Kyokai</option>
+                        <option value="KR">Korean Register</option>
+                        <option value="CCS">China Classification Society</option>
+                        <option value="RINA">Registro Italiano Navale</option>
+                        <option value="IRS">Indian Register of Shipping</option>
+                        <option value="RS">Russian Maritime Register</option>
+                        <option value="PRS">Polish Register of Shipping</option>
+                        <option value="CRS">Croatian Register of Shipping</option>
+                        <option value="IACS">Multiple (IACS member)</option>
+                      </datalist>
+                      <div className="form-hint">Type to search or select. Can enter custom value.</div>
                     </div>
                     <div className="form-group">
                       <label className="form-label">IMO Number <span className="req">*</span></label>
@@ -1262,6 +1292,40 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                         step="0.01" min="0" max="1"
                       />
                       <div className="form-hint">For NPV (e.g. 0.10 = 10%)</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Charter End / Docking Schedule / Common Implementation */}
+              <div className="onboard-card">
+                <div className="form-section">
+                  <div className="form-section-title">📅 Charter End &amp; Implementation Schedule</div>
+                  <div className="form-grid form-grid-3">
+                    <div className="form-group">
+                      <label className="form-label">Charter End Year</label>
+                      <input type="number" name="vesselEndYear" value={formData.vesselEndYear} onChange={handleFormChange} placeholder="e.g. 2029" className="form-input" />
+                      <div className="form-hint">Leave blank to use Vessel Life</div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Charter End Month</label>
+                      <input type="number" name="vesselEndMonth" value={formData.vesselEndMonth} onChange={handleFormChange} placeholder="1–12" className="form-input" min="1" max="12" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Docking Year</label>
+                      <input type="number" name="dockingYear" value={formData.dockingYear} onChange={handleFormChange} placeholder="e.g. 2027" className="form-input" />
+                      <div className="form-hint">First scheduled docking year</div>
+                    </div>
+                  </div>
+                  <div className="form-grid form-grid-2" style={{marginTop:8}}>
+                    <div className="form-group">
+                      <label className="form-label">Common ESD Impl. Month</label>
+                      <input type="number" name="commonImplMonth" value={formData.commonImplMonth} onChange={handleFormChange} placeholder="1–12" className="form-input" min="1" max="12" />
+                      <div className="form-hint">Force all in-sailing ESDs to this month (optional)</div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Common ESD Impl. Year</label>
+                      <input type="number" name="commonImplYear" value={formData.commonImplYear} onChange={handleFormChange} placeholder="e.g. 2026" className="form-input" />
                     </div>
                   </div>
                 </div>
@@ -1632,6 +1696,49 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                                 }}
                               />
 
+                            </div>
+
+                            <div className="selected-esd-field">
+                              <label>Lead Time (months)</label>
+                              <input
+                                type="number" min="1" max="24"
+                                value={
+                                  selectedEsds.find(esd => esd.id === item.id)
+                                    ?.lead_time_months || ""
+                                }
+                                onChange={(e) => {
+                                  setSelectedEsds(prev =>
+                                    prev.map(esd =>
+                                      esd.id === item.id
+                                        ? { ...esd, lead_time_months: e.target.value }
+                                        : esd
+                                    )
+                                  );
+                                }}
+                              />
+                            </div>
+
+                            <div className="selected-esd-field">
+                              <label>Installation</label>
+                              <select
+                                value={
+                                  selectedEsds.find(esd => esd.id === item.id)
+                                    ?.installation_req || "in_sailing"
+                                }
+                                onChange={(e) => {
+                                  setSelectedEsds(prev =>
+                                    prev.map(esd =>
+                                      esd.id === item.id
+                                        ? { ...esd, installation_req: e.target.value }
+                                        : esd
+                                    )
+                                  );
+                                }}
+                                style={{padding:'6px 8px',border:'1px solid var(--border)',borderRadius:4,fontSize:12,width:'100%'}}
+                              >
+                                <option value="in_sailing">In-Sailing</option>
+                                <option value="docking">Docking</option>
+                              </select>
                             </div>
 
                           </div>
