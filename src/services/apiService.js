@@ -76,23 +76,25 @@ export const authAPI = {
   },
 
   login: async (email, password) => {
-    try {
-      const response = await api.post('/users/login/', { email, password });
-      const d = response.data;
-      // Handle all possible response shapes
-      const token = d?.access || d?.data?.access || d?.token || d?.data?.token;
-      console.log('Login response:', { hasToken: !!token, keys: Object.keys(d || {}) });
-      if (token) {
-        localStorage.setItem('Authorization', token);
-      } else {
-        console.warn('No token found in login response:', d);
-      }
-      return { success: true, data: d };
-    } catch (error) {
-      console.error('Login failed:', error.response?.data || error.message);
-      return { success: false, error: error.response?.data?.message || error.response?.data?.detail || 'Login failed' };
+  try {
+    const response = await api.post('/users/login/', { email, password });
+    const raw = response.data;
+    // Backend wraps the real payload as { status, data: { user, access, refresh } }
+    // Unwrap it so callers always get { user, access, refresh } directly.
+    const d = raw?.data && (raw.data.user || raw.data.access) ? raw.data : raw;
+    const token = d?.access || d?.token;
+    console.log('Login response:', { hasToken: !!token, hasUser: !!d?.user, role: d?.user?.role });
+    if (token) {
+      localStorage.setItem('Authorization', token);
+    } else {
+      console.warn('No token found in login response:', d);
     }
-  },
+    return { success: true, data: d };
+  } catch (error) {
+    console.error('Login failed:', error.response?.data || error.message);
+    return { success: false, error: error.response?.data?.message || error.response?.data?.detail || 'Login failed' };
+  }
+},
 
   logout: async () => {
     localStorage.removeItem('Authorization');
