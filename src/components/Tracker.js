@@ -443,8 +443,8 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
       esd_measures: selectedEsdObjects.map(esd => ({
         category: (esd.category || 'operations').toLowerCase(),
         name: esd.name,
-        efficiency_gain_percent: esd.saving || esd.efficiency_gain_percent || 0,
-        cost_usd: esd.capex || esd.cost_usd || 0,
+        efficiency_gain_percent: parseFloat(esd.efficiency_gain_percent) || parseFloat(esd.saving) || 0,
+        cost_usd: parseFloat(esd.cost_usd) || parseFloat(esd.capex) || 0,
         lead_time_months: parseInt(esd.lead_time_months, 10) || 4,
         installation_req: esd.installation_req || 'in_sailing',
       })),
