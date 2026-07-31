@@ -116,7 +116,7 @@ function EsdTab({ out }) {
       <div className="card" style={{marginBottom:14}}>
         <div className="card-hd"><span className="card-title">ESD Performance</span><span style={{fontSize:10,color:'var(--ink3)'}}>Payback (EU) = cost ÷ (fuel + EUA + FuelEU savings)</span></div>
         <div style={{overflowX:'auto'}}><table className="tbl">
-          <thead><tr><th>ESD</th><th>Category</th><th>Install</th><th className="r">Saving%</th><th className="r">Fuel MT</th><th className="r">Fuel $</th><th className="r">EUA $</th><th className="r">FuelEU $</th><th className="r">Total/yr</th><th className="r">Payback(EU)</th></tr></thead>
+          <thead><tr><th>ESD</th><th>Category</th><th>Install</th><th className="r">Lead</th><th className="r">Cost</th><th className="r">Saving%</th><th className="r">Fuel MT</th><th className="r">Fuel $</th><th className="r">EUA $</th><th className="r">FuelEU $</th><th className="r">Total/yr</th><th className="r">Payback(EU)</th></tr></thead>
           <tbody>
             {esds.map((e,i)=>{
               const fuelRows=Object.entries(e.fuel_savings_mt||{});
@@ -125,6 +125,8 @@ function EsdTab({ out }) {
                 <td><b>{e.tech_name}</b></td>
                 <td><span className={`bx ${CAT_CLASS[e.category]||'bx-gray'}`}>{e.category}</span></td>
                 <td><span className={`bx ${e.installation_req==='docking'?'bx-a':'bx-gray'}`}>{e.installation_req?.replace('_','-')}</span></td>
+                <td className="r" style={{fontSize:10,color:'var(--ink3)'}}>{e.applicability?.lead_time_months || '—'}mo</td>
+                <td className="r">{fmt$(e.cost_usd)}</td>
                 <td className="r">{e.calculated_saving_pct?.toFixed(2)}%</td>
                 <td>
                   {fuelRows.length?(
@@ -148,7 +150,7 @@ function EsdTab({ out }) {
               </tr>
             );})}
             <tr className="tbl-tot">
-              <td colSpan={4}><b>TOTAL</b></td>
+              <td colSpan={6}><b>TOTAL</b></td>
               <td className="r">{fmtN(sum.total_fuel_savings_mt_all,0)} MT</td>
               <td className="r">{fmt$(sum.total_annual_cost_savings)}</td>
               <td className="r">{fmt$(sum.total_ets_savings_usd)}</td>
@@ -586,6 +588,7 @@ function CiiTab({ out }) {
 
 // ── Financial Tab ─────────────────────────────────────────────────────
 function FinancialTab({ out }) {
+  const [showMonthly, setShowMonthly] = useState(false);
   const cashRef = useRef(null);
   const opexRef = useRef(null);
   const overviewRef = useRef(null);
