@@ -440,14 +440,17 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         })),
       })),
 
-      esd_measures: selectedEsdObjects.map(esd => ({
-        category: (esd.category || 'operations').toLowerCase(),
-        name: esd.name,
-        efficiency_gain_percent: parseFloat(esd.efficiency_gain_percent) || parseFloat(esd.saving) || 0,
-        cost_usd: parseFloat(esd.cost_usd) || parseFloat(esd.capex) || 0,
-        lead_time_months: parseInt(esd.lead_time_months, 10) || 4,
-        installation_req: esd.installation_req || 'in_sailing',
-      })),
+      esd_measures: selectedEsdObjects
+        // Deduplicate by name — keep last occurrence (user's latest edit wins)
+        .filter((esd, idx, arr) => arr.findIndex(e => e.name === esd.name) === idx)
+        .map(esd => ({
+          category: (esd.category || 'operations').toLowerCase(),
+          name: esd.name,
+          efficiency_gain_percent: parseFloat(esd.efficiency_gain_percent) || parseFloat(esd.saving) || 0,
+          cost_usd: parseFloat(esd.cost_usd) || parseFloat(esd.capex) || 0,
+          lead_time_months: parseInt(esd.lead_time_months, 10) || 4,
+          installation_req: esd.installation_req || 'in_sailing',
+        })),
       vessel_life_years: parseInt(formData.vesselLifeYears, 10) || 25,
       vessel_end_year: formData.vesselEndYear ? parseInt(formData.vesselEndYear, 10) : undefined,
       vessel_end_month: formData.vesselEndMonth ? parseInt(formData.vesselEndMonth, 10) : undefined,

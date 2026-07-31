@@ -731,6 +731,40 @@ function FinancialTab({ out }) {
         <div className="card"><div className="card-hd"><span className="card-title">Investment Overview — {out?.input?.vessel?.vessel_name || '—'}</span><span style={{fontSize:9,color:'var(--ink3)'}}>Total cost vs returns</span></div>
           <div className="card-body"><div className="ch h300"><canvas ref={overviewRef}></canvas></div></div></div>
       </div>
+
+      {/* Monthly Breakdown toggle */}
+      <div className="card" style={{marginTop:14}}>
+        <div className="card-hd" style={{cursor:'pointer',userSelect:'none'}} onClick={()=>setShowMonthly(!showMonthly)}>
+          <span className="card-title">{showMonthly ? '▾' : '▸'} Monthly Cashflow Breakdown</span>
+          <span style={{fontSize:10,color:'var(--ink3)'}}>{(fin.monthly_cashflows||[]).length} months · {showMonthly ? 'click to collapse' : 'click to expand'}</span>
+        </div>
+        {showMonthly && (
+          <div style={{overflowX:'auto',padding:'0 0 12px'}}>
+            <table className="tbl" style={{fontSize:10,minWidth:820}}>
+              <thead><tr>
+                <th>Date</th><th>Status</th>
+                <th className="r">Investment</th>
+                <th className="r">Fuel $</th><th className="r">EUA $</th><th className="r">FuelEU $</th>
+                <th className="r">Net</th><th className="r">Cumulative</th>
+              </tr></thead>
+              <tbody>
+                {(fin.monthly_cashflows||[]).map((r,i)=>(
+                  <tr key={i} style={r.is_docking?{background:'#FEF3C7'}:{}}>
+                    <td style={{fontFamily:'IBM Plex Mono,monospace',fontSize:10,color:'var(--ink3)'}}>{r.date}</td>
+                    <td>{r.is_docking?<span className="bx bx-a">docking</span>:r.investment>0?<span className="bx bx-c">invest</span>:(r.fuel_savings>0?<span className="bx bx-b">saving</span>:<span style={{color:'var(--ink3)'}}>—</span>)}</td>
+                    <td className="r" style={{color:r.investment>0?'#DC2626':'var(--ink3)'}}>{r.investment>0?'-$'+fmtN(r.investment,0):'—'}</td>
+                    <td className="r" style={{color:'#059669'}}>{r.fuel_savings>0?'$'+fmtN(r.fuel_savings,0):'—'}</td>
+                    <td className="r" style={{color:'#2563EB'}}>{r.ets_savings>0?'$'+fmtN(r.ets_savings,0):'—'}</td>
+                    <td className="r" style={{color:'#7C3AED'}}>{r.fuel_eu_savings>0?'$'+fmtN(r.fuel_eu_savings,0):'—'}</td>
+                    <td className="r" style={{fontWeight:600,color:r.net_cashflow>=0?'#059669':'#DC2626'}}>{r.net_cashflow>=0?'+':''}{fmt$(r.net_cashflow)}</td>
+                    <td className="r" style={{fontWeight:600,color:r.cumulative_cashflow>=0?'#059669':'#DC2626'}}>{r.cumulative_cashflow>=0?'+':''}{fmt$(r.cumulative_cashflow)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -832,29 +866,36 @@ function EuTaxTab({ out }) {
           <b>Why does the penalty grow?</b> As IMO targets drop each year, this vessel becomes <i>more</i> non-compliant. Each tonne of fuel saved by ESDs avoids a proportionally <i>larger</i> penalty.
         </div>
         <div style={{overflowX:'auto'}}>
-        <table className="tbl"><thead><tr><th>Year</th><th className="r">IMO Target</th><th className="r">Excess</th><th className="r">Scale</th><th className="r">Vessel Penalty</th><th className="r">ESD Savings</th><th className="r">Net Penalty</th><th className="r">Cumul. Penalty</th><th className="r">Cumul. Savings</th></tr></thead>
+        <table className="tbl"><thead><tr><th>Year</th><th className="r">Months</th><th className="r">Target</th><th className="r">Excess</th><th className="r">FuelEU Penalty</th><th className="r">EUA Cost</th><th className="r">Total EU Cost</th><th className="r">ESD Fuel $</th><th className="r">ESD EUA $</th><th className="r">ESD FuelEU $</th><th className="r">Net FuelEU</th><th className="r">Net EUA</th></tr></thead>
         <tbody>
           {yearly.map((r,i)=>(
-            <tr key={i} style={{background:r.scale>1?'#EFF6FF':''}}>
-              <td><b>{r.year}</b> {r.scale>1&&<span style={{fontSize:8,color:'var(--blue)',fontWeight:600,marginLeft:4}}>{r.scale.toFixed(2)}×</span>}</td>
+            <tr key={i}>
+              <td><b>{r.year}</b></td>
+              <td className="r" style={{color:'var(--ink3)'}}>{r.active_months||12}mo</td>
               <td className="r">{r.target?.toFixed(4)}</td>
-              <td className="r" style={{color:'var(--red)'}}>+{r.vessel_excess?.toFixed(4)}</td>
-              <td className="r"><b style={{color:r.scale>1?'var(--blue)':''}}>{r.scale?.toFixed(3)}×</b></td>
-              <td className="r" style={{color:'var(--red)'}}>{fmt$(r.vessel_penalty_usd)}</td>
-              <td className="r" style={{color:'var(--green)'}}>{fmt$(r.esd_savings_usd)}</td>
-              <td className="r">{fmt$(r.net_penalty_usd)}</td>
-              <td className="r" style={{color:'var(--ink3)'}}>{fmt$(r.cumulative_vessel_penalty)}</td>
-              <td className="r" style={{color:'var(--green)'}}>{fmt$(r.cumulative_esd_savings)}</td>
+              <td className="r" style={{color:r.vessel_excess>0?'var(--red)':'var(--green)'}}>{r.vessel_excess>0?'+':''}{r.vessel_excess?.toFixed(4)}</td>
+              <td className="r" style={{color:'var(--red)'}}>{fmt$(r.vessel_fueleu_penalty_usd)}</td>
+              <td className="r" style={{color:'var(--red)'}}>{fmt$(r.vessel_eua_cost_usd)}</td>
+              <td className="r" style={{color:'var(--red)',fontWeight:600}}>{fmt$(r.total_vessel_eu_cost_usd)}</td>
+              <td className="r" style={{color:'var(--green)'}}>{fmt$(r.esd_fuel_savings_usd)}</td>
+              <td className="r" style={{color:'var(--green)'}}>{fmt$(r.esd_eua_savings_usd)}</td>
+              <td className="r" style={{color:'var(--green)'}}>{fmt$(r.esd_fueleu_savings_usd)}</td>
+              <td className="r">{fmt$(r.net_fueleu_usd)}</td>
+              <td className="r">{fmt$(r.net_eua_usd)}</td>
             </tr>
           ))}
           {yearly.length>0&&(
-            <tr style={{background:'var(--blue)',color:'#080808'}}>
-              <td><b>Total ({yearly[0]?.year}–{yearly[yearly.length-1]?.year})</b></td>
-              <td className="r">—</td><td className="r">—</td><td className="r">—</td>
-              <td className="r" style={{color:'#FCA5A5'}}><b>{fmt$(yearly.reduce((s,r)=>s+r.vessel_penalty_usd,0))}</b></td>
-              <td className="r" style={{color:'#6EE7B7'}}><b>{fmt$(yearly.reduce((s,r)=>s+r.esd_savings_usd,0))}</b></td>
-              <td className="r"><b>{fmt$(yearly.reduce((s,r)=>s+r.net_penalty_usd,0))}</b></td>
+            <tr style={{background:'#F0FDF4',fontWeight:600}}>
+              <td colSpan={2}><b>Total ({yearly[0]?.year}–{yearly[yearly.length-1]?.year})</b></td>
               <td className="r">—</td><td className="r">—</td>
+              <td className="r" style={{color:'var(--red)'}}><b>{fmt$(yearly.reduce((s,r)=>s+(r.vessel_fueleu_penalty_usd||0),0))}</b></td>
+              <td className="r" style={{color:'var(--red)'}}><b>{fmt$(yearly.reduce((s,r)=>s+(r.vessel_eua_cost_usd||0),0))}</b></td>
+              <td className="r" style={{color:'var(--red)'}}><b>{fmt$(yearly.reduce((s,r)=>s+(r.total_vessel_eu_cost_usd||0),0))}</b></td>
+              <td className="r" style={{color:'var(--green)'}}><b>{fmt$(yearly.reduce((s,r)=>s+(r.esd_fuel_savings_usd||0),0))}</b></td>
+              <td className="r" style={{color:'var(--green)'}}><b>{fmt$(yearly.reduce((s,r)=>s+(r.esd_eua_savings_usd||0),0))}</b></td>
+              <td className="r" style={{color:'var(--green)'}}><b>{fmt$(yearly.reduce((s,r)=>s+(r.esd_fueleu_savings_usd||0),0))}</b></td>
+              <td className="r"><b>{fmt$(yearly.reduce((s,r)=>s+(r.net_fueleu_usd||0),0))}</b></td>
+              <td className="r"><b>{fmt$(yearly.reduce((s,r)=>s+(r.net_eua_usd||0),0))}</b></td>
             </tr>
           )}
         </tbody></table>
