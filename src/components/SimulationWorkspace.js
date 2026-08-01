@@ -367,6 +367,7 @@ function CiiTab({ out }) {
   const sailing  = cii.graph2_sailing  || {};
   const esdData  = cii.graph3_esd      || {};
   const combined = cii.graph4_combined?.scenarios || cii.graph4_combined || {};
+  const [showCiiMonthly, setShowCiiMonthly] = useState(false);
   const sailKeys = Object.keys(sailing);
   const esdTimeline = esdData.esd_timeline || [];
 
@@ -584,6 +585,49 @@ function CiiTab({ out }) {
       </div>
     </div>
   );
+
+      {/* Monthly CII Breakdown toggle */}
+      <div className="card" style={{marginTop:14}}>
+        <div className="card-hd" style={{cursor:'pointer',userSelect:'none'}} onClick={()=>setShowCiiMonthly(!showCiiMonthly)}>
+          <span className="card-title">{showCiiMonthly ? '▾' : '▸'} Monthly CII Breakdown (ESD + Sailing)</span>
+          <span style={{fontSize:10,color:'var(--ink3)'}}>{showCiiMonthly ? 'click to collapse' : 'click to expand'}</span>
+        </div>
+        {showCiiMonthly && (
+          <div style={{overflowX:'auto',padding:'0 0 12px'}}>
+            <table className="tbl" style={{fontSize:10,minWidth:900}}>
+              <thead><tr>
+                <th>Date</th>
+                <th className="r">Required CII</th>
+                <th className="r">Grade</th>
+                <th className="r">Baseline (no ESD)</th>
+                <th className="r">With ESDs only</th>
+                {Object.keys(combined).map(k=>(
+                  <th key={k} className="r" style={{color:'var(--blue)'}}>{k} + ESDs</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {(esdData.monthly_data||[]).map((row,i)=>{
+                  const baseRow = baseline.find(b=>row.date.startsWith(b.date));
+                  return (
+                    <tr key={i} style={{background:row.date.endsWith('-01')?'#F0FDF4':''}}>
+                      <td style={{fontFamily:'IBM Plex Mono,monospace',fontSize:10,color:'var(--ink3)'}}>{row.date}</td>
+                      <td className="r" style={{color:'var(--amber)'}}>{row.required_cii?.toFixed(4)}</td>
+                      <td className="r"><span className={`bx bx-${row.grade==='A'?'b':row.grade==='B'?'b':row.grade==='C'?'a':row.grade==='D'?'p':'c'}`}>{row.grade}</span></td>
+                      <td className="r" style={{fontWeight:600}}>{baseRow?.attained_cii?.toFixed(4) || '—'}</td>
+                      <td className="r" style={{color:'var(--green)',fontWeight:600}}>{row.attained_cii?.toFixed(4)}</td>
+                      {Object.keys(combined).map(k=>{
+                        const scRow = (combined[k]||[]).find(s=>s.date===row.date);
+                        return <td key={k} className="r" style={{color:'var(--blue)'}}>{scRow?.attained_cii?.toFixed(4) || '—'}</td>;
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
 }
 
 // ── Financial Tab ─────────────────────────────────────────────────────
