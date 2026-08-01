@@ -583,8 +583,6 @@ function CiiTab({ out }) {
         <div className="card"><div className="card-hd"><span className="card-title">Graph 4 — Sailing + ESD Combined</span><EsdScheduleInfo timeline={esdTimeline}/></div>
           <div className="card-body"><div className="ch h360"><canvas id="sim-g4"></canvas></div></div></div>
       </div>
-    </div>
-  );
 
       {/* Monthly CII Breakdown toggle */}
       <div className="card" style={{marginTop:14}}>
@@ -628,7 +626,10 @@ function CiiTab({ out }) {
         )}
       </div>
 
+    </div>
+  );
 }
+
 
 // ── Financial Tab ─────────────────────────────────────────────────────
 function FinancialTab({ out }) {
