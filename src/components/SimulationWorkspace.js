@@ -594,25 +594,38 @@ function CiiTab({ out }) {
           <div style={{overflowX:'auto',padding:'0 0 12px'}}>
             <table className="tbl" style={{fontSize:10,minWidth:900}}>
               <thead><tr>
-                <th>Date</th>
-                <th className="r">Required CII</th>
+                <th style={{minWidth:90}}>Date / ESD Installed</th>
+                <th className="r">Req. CII</th>
                 <th className="r">Grade</th>
-                <th className="r">Baseline (no ESD)</th>
-                <th className="r">With ESDs only</th>
+                <th className="r">Baseline</th>
+                <th className="r">With ESDs</th>
+                <th className="r" style={{color:'var(--purple)'}}>Saving %</th>
+                <th className="r">Active</th>
                 {Object.keys(combined).map(k=>(
-                  <th key={k} className="r" style={{color:'var(--blue)'}}>{k} + ESDs</th>
+                  <th key={k} className="r" style={{color:'var(--blue)'}}>{k}+ESDs</th>
                 ))}
               </tr></thead>
               <tbody>
                 {(esdData.monthly_data||[]).map((row,i)=>{
                   const baseRow = baseline.find(b=>row.date.startsWith(b.date));
+                  const hasNew = row.newly_installed && row.newly_installed.length > 0;
+                  const prevRow = i > 0 ? (esdData.monthly_data||[])[i-1] : null;
+                  const ciiDrop = prevRow ? (prevRow.attained_cii - row.attained_cii) : 0;
                   return (
-                    <tr key={i} style={{background:row.date.endsWith('-01')?'#F0FDF4':''}}>
-                      <td style={{fontFamily:'IBM Plex Mono,monospace',fontSize:10,color:'var(--ink3)'}}>{row.date}</td>
+                    <tr key={i} style={{background: hasNew ? '#ECFDF5' : row.date.endsWith('-01') ? '#F0FDF4' : ''}}>
+                      <td style={{fontFamily:'IBM Plex Mono,monospace',fontSize:10,color:'var(--ink3)'}}>
+                        {row.date}
+                        {hasNew && <span style={{display:'block',fontSize:8,color:'#059669',fontWeight:600,fontFamily:'var(--font-sans)',marginTop:1}}>▼ {row.newly_installed.join(', ')}</span>}
+                      </td>
                       <td className="r" style={{color:'var(--amber)'}}>{row.required_cii?.toFixed(4)}</td>
-                      <td className="r"><span className={`bx bx-${row.grade==='A'?'b':row.grade==='B'?'b':row.grade==='C'?'a':row.grade==='D'?'p':'c'}`}>{row.grade}</span></td>
+                      <td className="r"><span className={`bx bx-${row.grade==='A'||row.grade==='B'?'b':row.grade==='C'?'a':row.grade==='D'?'p':'c'}`}>{row.grade}</span></td>
                       <td className="r" style={{fontWeight:600}}>{baseRow?.attained_cii?.toFixed(4) || '—'}</td>
-                      <td className="r" style={{color:'var(--green)',fontWeight:600}}>{row.attained_cii?.toFixed(4)}</td>
+                      <td className="r" style={{color:'var(--green)',fontWeight:600}}>
+                        {row.attained_cii?.toFixed(4)}
+                        {hasNew && ciiDrop > 0 && <span style={{fontSize:8,color:'#059669',marginLeft:3}}>↓{ciiDrop.toFixed(4)}</span>}
+                      </td>
+                      <td className="r" style={{color:'var(--purple)',fontSize:10}}>{row.cumulative_saving_pct?.toFixed(1) || '0'}%</td>
+                      <td className="r" style={{color:'var(--ink3)'}}>{row.active_esds || 0}/{(esdData.esd_timeline||[]).length}</td>
                       {Object.keys(combined).map(k=>{
                         const scRow = (combined[k]||[]).find(s=>s.date===row.date);
                         return <td key={k} className="r" style={{color:'var(--blue)'}}>{scRow?.attained_cii?.toFixed(4) || '—'}</td>;
