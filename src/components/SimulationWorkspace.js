@@ -466,14 +466,24 @@ function CiiTab({ out }) {
 
     // ── Shared y-axis bounds for ALL 4 graphs ──
     // Dynamic y-axis: ensure ALL 5 grade bands are always visible
-    // yMax must be above the highest d4 value, yMin below the lowest attained CII
+    // Dynamic y-axis: must show ALL grade bands + all attained CII values
+    // Collects from baseline (G1), ESD monthly (G3), and combined (G4)
     const allD4 = annual.map(r => r.d4).filter(v => v != null);
-    const allAttained = annual.map(r => r.attained_cii).filter(v => v != null);
     const allD1 = annual.map(r => r.d1).filter(v => v != null);
-    const dataMax = Math.max(...allD4, ...allAttained, 5.4);
-    const dataMin = Math.min(...allD1, ...allAttained, 2.0);
-    const yMax = Math.ceil((dataMax + 0.3) * 2) / 2;  // round up to nearest 0.5
-    const yMin = Math.floor((dataMin - 0.3) * 2) / 2; // round down to nearest 0.5
+    const allAttained = annual.map(r => r.attained_cii).filter(v => v != null);
+    // Also include ESD monthly attained values (they may be lower than baseline)
+    const esdMonthlyData = (cii.graph3_esd?.monthly_data || []);
+    const esdAttained = esdMonthlyData.map(r => r.attained_cii).filter(v => v != null);
+    // Also include combined scenario attained values
+    const combData = cii.graph4_combined?.scenarios || cii.graph4_combined || {};
+    const combAttained = Object.values(combData).flat().map(r => r?.attained_cii).filter(v => v != null);
+
+    const allValues = [...allD4, ...allD1, ...allAttained, ...esdAttained, ...combAttained];
+    const dataMax = allValues.length > 0 ? Math.max(...allValues) : 5.4;
+    const dataMin = allValues.length > 0 ? Math.min(...allValues) : 2.0;
+    // If attained > d4, yMax must be above attained value
+    const yMax = Math.ceil((dataMax + 0.5) * 2) / 2;   // round up to nearest 0.5
+    const yMin = Math.floor((dataMin - 0.5) * 2) / 2;  // round down to nearest 0.5
     const yBounds = {yMin, yMax};
     const fixedYScale = {min:yMin, max:yMax};
 
@@ -484,7 +494,7 @@ function CiiTab({ out }) {
       borderColor:'#D97706',
       borderDash:[8,4],
       borderWidth:1.5,
-      pointRadius:5,
+      pointRadius:3,
       pointStyle:'circle',
       pointBackgroundColor:'#D97706',
       pointBorderColor:'#92400E',
@@ -498,7 +508,7 @@ function CiiTab({ out }) {
     const g1Data = {
       labels,
       datasets:[
-        {label:'Attained CII (current, no ESDs)',data:annual.map(r=>r.attained_cii),borderColor:'#1A1A1A',borderWidth:2.5,pointRadius:5,pointStyle:'rectRot',pointBackgroundColor:'#1A1A1A',tension:0,fill:false},
+        {label:'Attained CII (current, no ESDs)',data:annual.map(r=>r.attained_cii),borderColor:'#1A1A1A',borderWidth:2.5,pointRadius:3,pointStyle:'rectRot',pointBackgroundColor:'#1A1A1A',tension:0,fill:false},
         makeCiiReq(annual.map(r=>r.required_cii)),
       ]
     };
@@ -546,7 +556,7 @@ function CiiTab({ out }) {
       {label:'Baseline (no ESDs)',data:basePts,borderColor:'#1A1A1A',borderDash:[6,4],borderWidth:1.5,pointRadius:0,fill:false,tension:0,parsing:false},
       {label:'CII_R (Required)',data:reqPts,borderColor:'#D97706',borderDash:[8,4],borderWidth:1.5,pointRadius:3,pointBackgroundColor:'#D97706',fill:false,tension:0,stepped:'before',parsing:false},
       {label:'With ESDs',data:esdPts,borderColor:'#2563EB',borderWidth:2.5,pointRadius:0,fill:false,tension:0,stepped:'before',parsing:false},
-      {label:'ESD Installed',data:esdInstallPts,borderColor:'transparent',borderWidth:0,pointRadius:7,pointStyle:'triangle',pointBackgroundColor:'#059669',pointBorderColor:'#065F46',pointBorderWidth:1.5,parsing:false,showLine:false},
+      {label:'ESD Installed',data:esdInstallPts,borderColor:'#065F46',borderDash:[8,4],borderWidth:1.5,pointRadius:3,pointBackgroundColor:'#065F46',fill:false,tension:0,stepped:'before',parsing:false},
     ]},{useGradeBands:true,yMin:yBounds.yMin,yMax:yBounds.yMax,
       overrideX:{type:'linear',min:g3XMin,max:g3XMax,grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10,callback:v=>{const yr=Math.floor(v);const mo=Math.round((v-yr)*12)+1;return mo===1?yr:mo===7?'Jul':''}}}
     });
@@ -598,13 +608,13 @@ function CiiTab({ out }) {
       </div>
       <div className="g2" style={{marginBottom:14}}>
         <div className="card"><div className="card-hd"><span className="card-title">Graph 1 — Baseline CII</span><span className="bv bv-g">No ESDs</span></div>
-          <div className="card-body"><div className="ch h280" style={{height:420}}><canvas id="sim-g1"></canvas></div></div></div>
+          <div className="card-body"><div className="ch h280"  style={{height: "400px"}}><canvas id="sim-g1"></canvas></div></div></div>
         <div className="card"><div className="card-hd"><span className="card-title">Graph 3 — With ESD Rollout</span><EsdScheduleInfo timeline={esdTimeline}/></div>
-          <div className="card-body"><div className="ch h280" style={{height:420}}><canvas id="sim-g3"></canvas></div></div></div>
+          <div className="card-body"><div className="ch h280"  style={{height: "400px"}}><canvas id="sim-g3"></canvas></div></div></div>
         <div className="card"><div className="card-hd"><span className="card-title">Graph 2 — Sailing Profile Scenarios</span></div>
-          <div className="card-body"><div className="ch h280" style={{height:420}}><canvas id="sim-g2"></canvas></div></div></div>
+          <div className="card-body"><div className="ch h280" style={{height: "400px"}}><canvas id="sim-g2"></canvas></div></div></div>
         <div className="card"><div className="card-hd"><span className="card-title">Graph 4 — Sailing + ESD Combined</span><EsdScheduleInfo timeline={esdTimeline}/></div>
-          <div className="card-body"><div className="ch h280" style={{height:420}}><canvas id="sim-g4"></canvas></div></div></div>
+          <div className="card-body"><div className="ch h280"  style={{height: "400px"}}><canvas id="sim-g4"></canvas></div></div></div>
       </div>
 
       {/* Monthly CII Breakdown toggle */}
