@@ -63,6 +63,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
   const [vessels, setVessels] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [onboardLoading, setOnboardLoading] = useState(false);
   const [simulatingId, setSimulatingId] = useState(null);
   const [selectedEsds, setSelectedEsds] = useState([]);
   const [vesselsLoading, setVesselsLoading] = useState(true);
@@ -386,6 +387,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     }
   };
   const saveVessel = async () => {
+    setOnboardLoading(true);
     if (!formData.vesselName || !formData.owner || !formData.imoNumber) {
       alert("Please fill in required fields");
       return;
@@ -508,6 +510,8 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         "Something went wrong."
       );
 
+    } finally {
+      setOnboardLoading(false);
     }
   };
 
@@ -1759,8 +1763,8 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                 <button className="btn btn-secondary" onClick={closeModal}>
                   Cancel
                 </button>
-                <button className="btn btn-primary" onClick={saveVessel}>
-                  ✓ Save Vessel
+                <button className="btn btn-primary" onClick={saveVessel} disabled={onboardLoading}>
+                  {onboardLoading ? '⏳ Saving...' : '✓ Save Vessel'}
                 </button>
               </div>
             </div>

@@ -539,8 +539,8 @@ function CiiTab({ out }) {
         return { x: yr + (mo-1)/12, y: r.attained_cii };
       });
 
-    const g3XMin = esdPts.length > 0 ? Math.floor(esdPts[0].x) : labels[0];
-    const g3XMax = esdPts.length > 0 ? Math.ceil(esdPts[esdPts.length-1].x) : labels[labels.length-1];
+    const g3XMin = esdPts.length > 0 ? esdPts[0].x : labels[0];
+    const g3XMax = esdPts.length > 0 ? esdPts[esdPts.length-1].x : labels[labels.length-1];
 
     buildChart('g3',{datasets:[
       {label:'Baseline (no ESDs)',data:basePts,borderColor:'#1A1A1A',borderDash:[6,4],borderWidth:1.5,pointRadius:0,fill:false,tension:0,parsing:false},
@@ -548,7 +548,7 @@ function CiiTab({ out }) {
       {label:'With ESDs',data:esdPts,borderColor:'#2563EB',borderWidth:2.5,pointRadius:0,fill:false,tension:0,stepped:'before',parsing:false},
       {label:'ESD Installed',data:esdInstallPts,borderColor:'transparent',borderWidth:0,pointRadius:7,pointStyle:'triangle',pointBackgroundColor:'#059669',pointBorderColor:'#065F46',pointBorderWidth:1.5,parsing:false,showLine:false},
     ]},{useGradeBands:true,yMin:yBounds.yMin,yMax:yBounds.yMax,
-      overrideX:{type:'linear',min:g3XMin,max:g3XMax,grid:{display:false},ticks:{font:{size:10},callback:v=>Number.isInteger(v)?v:''}}
+      overrideX:{type:'linear',min:g3XMin,max:g3XMax,grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10,callback:v=>{const yr=Math.floor(v);const mo=Math.round((v-yr)*12)+1;return mo===1?yr:mo===7?'Jul':''}}}
     });
 
     // G4 — Combined (sailing + ESD) — MONTHLY to show ESD drop effect
@@ -565,7 +565,7 @@ function CiiTab({ out }) {
       g4Ds.push({label:k+' + ESDs',data:scData,borderColor:SAIL_COLORS[Object.keys(combined).indexOf(k)%SAIL_COLORS.length],borderWidth:1.5,pointRadius:0,fill:false,tension:0,stepped:'before',parsing:false});
     });
     buildChart('g4',{datasets:g4Ds},{useGradeBands:true,yMin:yBounds.yMin,yMax:yBounds.yMax,
-      overrideX:{type:'linear',min:g3XMin,max:g3XMax,grid:{display:false},ticks:{font:{size:10},callback:v=>Number.isInteger(v)?v:''}}
+      overrideX:{type:'linear',min:g3XMin,max:g3XMax,grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10,callback:v=>{const yr=Math.floor(v);const mo=Math.round((v-yr)*12)+1;return mo===1?yr:mo===7?'Jul':''}}}
     });
   },[baseline,sailing,combined,esdData,sailFilter,buildChart,annualOf,sailKeys,esdTimeline]);
 
@@ -598,13 +598,13 @@ function CiiTab({ out }) {
       </div>
       <div className="g2" style={{marginBottom:14}}>
         <div className="card"><div className="card-hd"><span className="card-title">Graph 1 — Baseline CII</span><span className="bv bv-g">No ESDs</span></div>
-          <div className="card-body"><div className="ch h360"><canvas id="sim-g1"></canvas></div></div></div>
+          <div className="card-body"><div className="ch h280"><canvas id="sim-g1"></canvas></div></div></div>
         <div className="card"><div className="card-hd"><span className="card-title">Graph 3 — With ESD Rollout</span><EsdScheduleInfo timeline={esdTimeline}/></div>
-          <div className="card-body"><div className="ch h360"><canvas id="sim-g3"></canvas></div></div></div>
+          <div className="card-body"><div className="ch h280"><canvas id="sim-g3"></canvas></div></div></div>
         <div className="card"><div className="card-hd"><span className="card-title">Graph 2 — Sailing Profile Scenarios</span></div>
-          <div className="card-body"><div className="ch h360"><canvas id="sim-g2"></canvas></div></div></div>
+          <div className="card-body"><div className="ch h280"><canvas id="sim-g2"></canvas></div></div></div>
         <div className="card"><div className="card-hd"><span className="card-title">Graph 4 — Sailing + ESD Combined</span><EsdScheduleInfo timeline={esdTimeline}/></div>
-          <div className="card-body"><div className="ch h360"><canvas id="sim-g4"></canvas></div></div></div>
+          <div className="card-body"><div className="ch h280"><canvas id="sim-g4"></canvas></div></div></div>
       </div>
 
       {/* Monthly CII Breakdown toggle */}
@@ -724,8 +724,8 @@ function FinancialTab({ out }) {
       // Main line data (sampled for performance)
       // All points so chart starts from analysis month
       const cfPts   = cf.map(r=>({x:r.timeline, y:r.cumulative_cashflow}));
-      const xMin    = cf.length > 0 ? Math.floor(cf[0].timeline) : undefined;
-      const xMax    = cf.length > 0 ? Math.ceil(cf[cf.length-1].timeline) : undefined;
+      const xMin    = cf.length > 0 ? cf[0].timeline : undefined;
+      const xMax    = cf.length > 0 ? cf[cf.length-1].timeline : undefined;
       // Docking points only (for triangle markers)
       const dockPts = cf.filter(r=>r.is_docking).map(r=>({x:r.timeline,y:r.cumulative_cashflow}));
 
@@ -753,7 +753,7 @@ function FinancialTab({ out }) {
               {text:'▲ Docking',fillStyle:'#D97706',strokeStyle:'#92400E',lineWidth:1,pointStyle:'triangle'},
             ]
           }}},
-          scales:{x:{type:'linear',min:xMin,max:xMax,grid:{display:false},ticks:{font:{size:10},callback:v=>v.toFixed(0)}},y:{grid:{color:'rgba(0,0,0,.04)',drawBorder:false},ticks:{font:{size:10},callback:fmtM}}}
+          scales:{x:{type:'linear',min:xMin,max:xMax,grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10,callback:v=>{const yr=Math.floor(v);const mo=Math.round((v-yr)*12)+1;return mo===1?yr:mo===7?'Jul':''}}},y:{grid:{color:'rgba(0,0,0,.04)',drawBorder:false},ticks:{font:{size:10},callback:fmtM}}}
         }
       });
     }
@@ -1101,6 +1101,7 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
 
   // ── run simulation ────────────────────────────────────────────────────
   const runSim = async () => {
+    setSimLoading(true);
     console.log('[runSim] Starting — vesselMeta:', !!vesselMeta, 'sessionMode:', sessionMode, 'reportId:', reportId);
     if(!vesselMeta) { setError('Vessel data not loaded yet.'); return; }
     setRunning(true); setError(null);
@@ -1187,7 +1188,17 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
   );
 
   return(
-    <div style={{display:'flex',width:'100%',height:'calc(100vh - 52px)',overflow:'hidden'}}>
+    <div style={{display:'flex',width:'100%',height:'calc(100vh - 52px)',overflow:'hidden',position:'relative'}}>
+
+      {/* Full-screen simulation loader */}
+      {running && (
+        <div style={{position:'absolute',inset:0,background:'rgba(255,255,255,0.85)',zIndex:999,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:16,backdropFilter:'blur(4px)'}}>
+          <div style={{width:48,height:48,border:'4px solid var(--border)',borderTopColor:'var(--green)',borderRadius:'50%',animation:'spin 1s linear infinite'}}></div>
+          <div style={{fontSize:16,fontWeight:500,color:'var(--ink1)'}}>Running simulation...</div>
+          <div style={{fontSize:12,color:'var(--ink3)'}}>Calculating CII projections, ESD savings, financial metrics</div>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        </div>
+      )}
 
       {/* ========== SIDEBAR ========== */}
       <div className={`sim-sidebar${sidebarOpen?' open':''}`} style={{flexShrink:0}}>
