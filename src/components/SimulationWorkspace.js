@@ -516,22 +516,40 @@ function CiiTab({ out }) {
     });
     buildChart('g2',{labels,datasets:g2Datasets},{useGradeBands:true,...yBounds});
 
-    // G3 — ESD step-down (YEARLY — same axis as G1/G2/G4)
+    // G3 — ESD step-down (MONTHLY — shows CII drop as each ESD installs)
     const esdMonthly = esdData.monthly_data || [];
-    // Deduplicate ESD data to one value per year (take last month of each year)
-    const esdByYear = {};
-    esdMonthly.forEach(r => {
-      const yr = parseInt(r.date);
-      esdByYear[yr] = r; // last entry per year wins
+    // Convert monthly dates to numeric x values for linear axis
+    const esdPts = esdMonthly.map(r => {
+      const [yr,mo] = r.date.split('-').map(Number);
+      return { x: yr + (mo-1)/12, y: r.attained_cii };
     });
-    const esdAnnual = labels.map(yr => esdByYear[yr]?.attained_cii || annualOf(baseline).find(r=>parseInt(r.date)===yr)?.attained_cii);
-    const baseAnnual = labels.map(yr => annualOf(baseline).find(r=>parseInt(r.date)===yr)?.attained_cii);
-    
-    buildChart('g3',{labels, datasets:[
-      {label:'Baseline (no ESDs)',data:baseAnnual,borderColor:'#1A1A1A',borderDash:[6,4],borderWidth:1.5,pointRadius:0,fill:false,tension:0},
-      makeCiiReq(annual.map(r=>r.required_cii)),
-      {label:'With ESDs',data:esdAnnual,borderColor:'#2563EB',borderWidth:2.5,pointRadius:5,pointStyle:'circle',pointBackgroundColor:'#2563EB',pointBorderColor:'#1E40AF',pointBorderWidth:1.5,fill:false,tension:0,stepped:'before'},
-    ]},{useGradeBands:true,...yBounds});
+    // Baseline as flat line across same range
+    const baseAttained = baseline.length > 0 ? baseline[0].attained_cii : null;
+    const basePts = esdPts.map(p => ({ x: p.x, y: baseAttained }));
+    // Required CII line (steps per year)
+    const reqPts = esdMonthly.map(r => {
+      const [yr,mo] = r.date.split('-').map(Number);
+      return { x: yr + (mo-1)/12, y: r.required_cii };
+    });
+    // Mark months where new ESDs become active
+    const esdInstallPts = esdMonthly
+      .filter(r => r.newly_installed && r.newly_installed.length > 0)
+      .map(r => {
+        const [yr,mo] = r.date.split('-').map(Number);
+        return { x: yr + (mo-1)/12, y: r.attained_cii };
+      });
+
+    const g3XMin = esdPts.length > 0 ? Math.floor(esdPts[0].x) : labels[0];
+    const g3XMax = esdPts.length > 0 ? Math.ceil(esdPts[esdPts.length-1].x) : labels[labels.length-1];
+
+    buildChart('g3',{datasets:[
+      {label:'Baseline (no ESDs)',data:basePts,borderColor:'#1A1A1A',borderDash:[6,4],borderWidth:1.5,pointRadius:0,fill:false,tension:0,parsing:false},
+      {label:'CII_R (Required)',data:reqPts,borderColor:'#D97706',borderDash:[8,4],borderWidth:1.5,pointRadius:3,pointBackgroundColor:'#D97706',fill:false,tension:0,stepped:'before',parsing:false},
+      {label:'With ESDs',data:esdPts,borderColor:'#2563EB',borderWidth:2.5,pointRadius:0,fill:false,tension:0,stepped:'before',parsing:false},
+      {label:'ESD Installed',data:esdInstallPts,borderColor:'transparent',borderWidth:0,pointRadius:7,pointStyle:'triangle',pointBackgroundColor:'#059669',pointBorderColor:'#065F46',pointBorderWidth:1.5,parsing:false,showLine:false},
+    ]},{useGradeBands:true,yMin:yBounds.yMin,yMax:yBounds.yMax,
+      overrideX:{type:'linear',min:g3XMin,max:g3XMax,grid:{display:false},ticks:{font:{size:10},callback:v=>Number.isInteger(v)?v:''}}
+    });
 
     // G4 — Combined (sailing + ESD) — MONTHLY to show ESD drop effect
     const combKeys2=sailFilter==='all'?Object.keys(combined):[sailFilter];
