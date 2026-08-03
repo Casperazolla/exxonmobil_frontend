@@ -450,7 +450,7 @@ function CiiTab({ out }) {
       plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:12}},
                tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(4)}`}}},
       scales:{
-        x:{grid:{display:false},ticks:{font:{size:10}}, ...(extra.scales?.x||{})},
+        x: extra.overrideX || {grid:{display:false},ticks:{font:{size:10}}, ...(extra.scales?.x||{})},
         y:{grid:{color:'rgba(0,0,0,.04)',drawBorder:false},ticks:{font:{size:10}},
           ...(extra.yMin!=null?{min:extra.yMin}:{}),
           ...(extra.yMax!=null?{max:extra.yMax}:{}),
@@ -533,17 +533,22 @@ function CiiTab({ out }) {
       {label:'With ESDs',data:esdAnnual,borderColor:'#2563EB',borderWidth:2.5,pointRadius:5,pointStyle:'circle',pointBackgroundColor:'#2563EB',pointBorderColor:'#1E40AF',pointBorderWidth:1.5,fill:false,tension:0,stepped:'before'},
     ]},{useGradeBands:true,...yBounds});
 
-    // G4 — Combined (sailing + ESD)
+    // G4 — Combined (sailing + ESD) — MONTHLY to show ESD drop effect
     const combKeys2=sailFilter==='all'?Object.keys(combined):[sailFilter];
     const g4Ds=[
-      makeCiiReq(labels.map(yr=>annualOf(baseline).find(r=>parseInt(r.date)===yr)?.required_cii)),
-      {label:'Baseline (no ESDs)',data:labels.map(yr=>annualOf(baseline).find(r=>parseInt(r.date)===yr)?.attained_cii),borderColor:'#1A1A1A',borderDash:[6,4],borderWidth:1.5,pointRadius:0,fill:false,tension:0},
+      {label:'Baseline (no ESDs)',data:basePts,borderColor:'#1A1A1A',borderDash:[6,4],borderWidth:1.5,pointRadius:0,fill:false,tension:0,parsing:false},
+      {label:'CII_R (Required)',data:reqPts,borderColor:'#D97706',borderDash:[8,4],borderWidth:1.5,pointRadius:3,pointBackgroundColor:'#D97706',fill:false,tension:0,stepped:'before',parsing:false},
     ];
-    combKeys2.forEach((k,i)=>{
-      const arr=annualOf(combined[k]||[]);
-      g4Ds.push({label:k+' + ESDs',data:labels.map(yr=>arr.find(r=>parseInt(r.date)===yr)?.attained_cii),borderColor:SAIL_COLORS[Object.keys(combined).indexOf(k)%SAIL_COLORS.length],borderWidth:1.5,pointRadius:3,pointBackgroundColor:SAIL_COLORS[Object.keys(combined).indexOf(k)%SAIL_COLORS.length],fill:false,tension:0});
+    combKeys2.forEach((k,ki)=>{
+      const scData = (combined[k]||[]).map(r => {
+        const [yr,mo] = r.date.split('-').map(Number);
+        return { x: yr + (mo-1)/12, y: r.attained_cii };
+      });
+      g4Ds.push({label:k+' + ESDs',data:scData,borderColor:SAIL_COLORS[Object.keys(combined).indexOf(k)%SAIL_COLORS.length],borderWidth:1.5,pointRadius:0,fill:false,tension:0,stepped:'before',parsing:false});
     });
-    buildChart('g4',{labels,datasets:g4Ds},{useGradeBands:true,...yBounds});
+    buildChart('g4',{datasets:g4Ds},{useGradeBands:true,yMin:yBounds.yMin,yMax:yBounds.yMax,
+      overrideX:{type:'linear',min:g3XMin,max:g3XMax,grid:{display:false},ticks:{font:{size:10},callback:v=>Number.isInteger(v)?v:''}}
+    });
   },[baseline,sailing,combined,esdData,sailFilter,buildChart,annualOf,sailKeys,esdTimeline]);
 
   useEffect(()=>{ rebuildAll(); },[rebuildAll]);
