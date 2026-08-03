@@ -1,6 +1,8 @@
 /* eslint-disable no-unused-vars, react-hooks/exhaustive-deps */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { simulationAPI } from '../services/apiService';
+import PdfReport from './PdfReport';
+import { generatePdf } from '../utils/pdfExport';
 
 // =====================================================================
 // HELPERS
@@ -1201,6 +1203,9 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
   return(
     <div style={{display:'flex',width:'100%',height:'calc(100vh - 52px)',overflow:'hidden',position:'relative'}}>
 
+      {/* Hidden PDF report — captured by html2canvas for PDF export */}
+      <PdfReport out={reportData?.output||reportData} input={reportData?.input||{}} vesselName={v.vessel_name||vesselName} vesselImage={null} />
+
       {/* Full-screen simulation loader */}
       {running && (
         <div style={{position:'absolute',inset:0,background:'rgba(255,255,255,0.85)',zIndex:999,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:16,backdropFilter:'blur(4px)'}}>
@@ -1339,6 +1344,14 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
           )}
             {feuP.compliant===false&&<span style={{padding:'3px 8px',borderRadius:10,fontSize:9,fontWeight:600,background:'#FEE2E2',color:'var(--red)'}}>FuelEU Non-Compliant</span>}
             {grade&&<span style={{padding:'3px 8px',borderRadius:10,fontSize:9,fontWeight:600,background:'var(--gl)',color:'var(--green)'}}>CII Grade {grade}</span>}
+            {reportData && (
+              <button className="btn btn-secondary btn-sm" onClick={async()=>{
+                try{await generatePdf('pdf-report-container',`${v.vessel_name||vesselName||'Report'}_ESD_Report.pdf`);}
+                catch(e){console.error('PDF error:',e);alert('PDF generation failed: '+e.message);}
+              }}>
+                <i className="ti ti-file-download"></i> PDF Report
+              </button>
+            )}
             <button className="btn btn-secondary btn-sm" onClick={()=>setSidebarOpen(o=>!o)}>
               <i className={`ti ${sidebarOpen?'ti-x':'ti-sliders'}`}></i> {sidebarOpen?'Hide Inputs':'Edit Inputs'}
             </button>
