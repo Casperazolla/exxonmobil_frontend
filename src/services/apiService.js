@@ -172,38 +172,44 @@ export const simulationAPI = {
         voyage_meta: {
           analysis_month:              simulationData.voyage_meta?.analysis_month              || 10,
           analysis_year:               simulationData.voyage_meta?.analysis_year               || new Date().getFullYear(),
-          docking_month:               simulationData.voyage_meta?.docking_month               || 4,
+          docking_month:                simulationData.voyage_meta?.docking_month               || 4,
+          docking_year:                 simulationData.voyage_meta?.docking_year                || new Date().getFullYear(),
+          common_impl_month:            simulationData.voyage_meta?.common_impl_month           || 8,
+          common_impl_year:             simulationData.voyage_meta?.common_impl_year            || new Date().getFullYear(),
           sailing_days_per_year:       simulationData.voyage_meta?.sailing_days_per_year       || 200,
           non_steaming_days_per_year:  simulationData.voyage_meta?.non_steaming_days_per_year  || 165,
           distance_nm:                 simulationData.voyage_meta?.distance_nm                 || 60000,
           eu_voyages_percent:          simulationData.voyage_meta?.eu_voyages_percent          || 30,
           eua_cost_usd:                simulationData.voyage_meta?.eua_cost_usd                || 75,
-          f_i:   simulationData.voyage_meta?.f_i   || 1.0,
-          f_m:   simulationData.voyage_meta?.f_m   || 1.0,
-          f_c:   simulationData.voyage_meta?.f_c   || 1.0,
-          f_ivse:simulationData.voyage_meta?.f_ivse|| 1.0,
+
+          f_i:    simulationData.voyage_meta?.f_i    || 1.0,
+          f_m:    simulationData.voyage_meta?.f_m    || 1.0,
+          f_c:    simulationData.voyage_meta?.f_c    || 1.0,
+          f_ivse: simulationData.voyage_meta?.f_ivse || 1.0,
         },
         machines: (simulationData.machines || []).map(m => ({
           machine_name: m.machine_name,
           fuel_particulars: (m.fuel_particulars || []).map(fp => ({
-            fuel_name:            fp.fuel_name,
-            consumption_mt:       fp.consumption_mt,
-            fuel_price_usd_per_mt:fp.fuel_price_usd_per_mt,
+            fuel_name:             fp.fuel_name,
+            consumption_mt:        fp.consumption_mt,
+            fuel_price_usd_per_mt: fp.fuel_price_usd_per_mt,
           })),
         })),
         esd_measures: selectedEsds.map(esd => {
           const cat = (esd.category || 'operations').toLowerCase();
           const defaults = ESD_INSTALL_DEFAULTS[cat] || ESD_INSTALL_DEFAULTS.operations;
           return {
-            category:                 cat,
-            name:                     esd.name,
-            efficiency_gain_percent:  Number(esd.efficiency_gain_percent || esd.saving || 0),
-            cost_usd:                 Number(esd.cost_usd || esd.capex || 0),
-            lead_time_months:         esd.lead_time_months || defaults.lead_time_months,
-            installation_req:         esd.installation_req || defaults.installation_req,
+            category:                cat,
+            name:                    esd.name,
+            efficiency_gain_percent: Number(esd.efficiency_gain_percent || esd.saving || 0),
+            cost_usd:                Number(esd.cost_usd || esd.capex || 0),
+            lead_time_months:        esd.lead_time_months || defaults.lead_time_months,
+            installation_req:        esd.installation_req || defaults.installation_req,
           };
         }),
         vessel_life_years: vesselLifeYears,
+        vessel_end_year:   simulationData.vessel_end_year   || (new Date().getFullYear() + vesselLifeYears),
+        vessel_end_month:  simulationData.vessel_end_month  || 3,
         discount_rate:     discountRate,
         sailing_profile_scenarios: null,
       };
@@ -224,7 +230,6 @@ export const simulationAPI = {
       };
     }
   },
-
   updateSimulation: async (reportId, payload) => {
     try {
       const data = await makeRequest('POST', '/simulation/update-simulation/', { report_id: reportId, ...payload });
