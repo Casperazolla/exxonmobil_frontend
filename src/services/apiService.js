@@ -1,13 +1,13 @@
 import axios from 'axios';
 import { hostname } from '../config/apiConfig';
-
+ 
 const api = axios.create({
   baseURL: hostname,
   withCredentials: true,
   timeout: 60000,
   headers: { 'Content-Type': 'application/json' },
 });
-
+ 
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('Authorization');
@@ -25,7 +25,7 @@ api.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
-
+ 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -43,7 +43,7 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
+ 
 const makeRequest = async (method, url, data = null) => {
   try {
     const response = await api({ method, url, data });
@@ -53,7 +53,7 @@ const makeRequest = async (method, url, data = null) => {
     throw error;
   }
 };
-
+ 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 export const authAPI = {
   signup: async (email, password, firstName, lastName, role = 'user') => {
@@ -64,7 +64,7 @@ export const authAPI = {
       return { success: false, error: error.response?.data?.message || error.message };
     }
   },
-
+ 
   verifyOtp: async (email, otp) => {
     try {
       const response = await api.post('/users/signup/verify/', { email, otp });
@@ -74,7 +74,7 @@ export const authAPI = {
       return { success: false, error: error.response?.data?.message || error.message };
     }
   },
-
+ 
   login: async (email, password) => {
   try {
     const response = await api.post('/users/login/', { email, password });
@@ -95,13 +95,13 @@ export const authAPI = {
     return { success: false, error: error.response?.data?.message || error.response?.data?.detail || 'Login failed' };
   }
 },
-
+ 
   logout: async () => {
     localStorage.removeItem('Authorization');
     return { success: true };
   },
 };
-
+ 
 // ── VESSELS ───────────────────────────────────────────────────────────────────
 export const vesselAPI = {
   getAll: async () => {
@@ -114,7 +114,7 @@ export const vesselAPI = {
       return { success: false, error: error.response?.data?.message || error.message };
     }
   },
-
+ 
   getSimulationMeta: async (vesselId) => {
     try {
       const data = await makeRequest('GET', `/simulation/vessel-meta/?vessel_id=${vesselId}`);
@@ -124,7 +124,7 @@ export const vesselAPI = {
     }
   },
 };
-
+ 
 // ── ONBOARDING ────────────────────────────────────────────────────────────────
 export const onboardingAPI = {
   onboardVessel: async (payload) => {
@@ -136,7 +136,7 @@ export const onboardingAPI = {
     }
   },
 };
-
+ 
 // ── SIMULATION ────────────────────────────────────────────────────────────────
 // Installation mapping for ESD categories (lead_time and installation_req defaults)
 const ESD_INSTALL_DEFAULTS = {
@@ -146,7 +146,7 @@ const ESD_INSTALL_DEFAULTS = {
   auxiliary:  { lead_time_months: 4, installation_req: 'in_sailing' },
   operations: { lead_time_months: 4, installation_req: 'in_sailing' },
 };
-
+ 
 export const simulationAPI = {
   /**
    * Build and POST the simulate-vessel payload.
@@ -181,7 +181,7 @@ export const simulationAPI = {
           distance_nm:                 simulationData.voyage_meta?.distance_nm                 || 60000,
           eu_voyages_percent:          simulationData.voyage_meta?.eu_voyages_percent          || 30,
           eua_cost_usd:                simulationData.voyage_meta?.eua_cost_usd                || 75,
-
+ 
           f_i:    simulationData.voyage_meta?.f_i    || 1.0,
           f_m:    simulationData.voyage_meta?.f_m    || 1.0,
           f_c:    simulationData.voyage_meta?.f_c    || 1.0,
@@ -213,13 +213,13 @@ export const simulationAPI = {
         discount_rate:     discountRate,
         sailing_profile_scenarios: null,
       };
-
+ 
       // Wrap in the format backend expects: { vessel_id, input: {...} }
       const vesselId = simulationData.vessel?.id || simulationData.vesselId;
       const payload = vesselId
         ? { vessel_id: vesselId, input: inputPayload }
         : inputPayload;  // fallback: send flat (backend will use IMO lookup)
-
+ 
       console.log('[simulate] POST /simulation/simulate-vessel/', { vessel_id: vesselId, hasInput: !!inputPayload });
       const data = await makeRequest('POST', '/simulation/simulate-vessel/', payload);
       return { success: true, data };
@@ -238,7 +238,7 @@ export const simulationAPI = {
       return { success: false, error: error.response?.data?.message || error.message };
     }
   },
-
+ 
   listReports: async (vesselId) => {
     try {
       const data = await makeRequest('GET', `/simulation/list-reports/?vessel_id=${vesselId}`);
@@ -247,7 +247,7 @@ export const simulationAPI = {
       return { success: false, error: error.response?.data?.message || error.message, data: [] };
     }
   },
-
+ 
   getReport: async (reportId) => {
     try {
       const data = await makeRequest('GET', `/simulation/report/?report_id=${reportId}`);
@@ -256,7 +256,7 @@ export const simulationAPI = {
       return { success: false, error: error.response?.data?.message || error.message };
     }
   },
-
+ 
   deleteReports: async (vesselId) => {
     try {
       const data = await makeRequest('POST', '/simulation/delete-reports/', { vessel_id: vesselId });
@@ -268,5 +268,7 @@ export const simulationAPI = {
     }
   },
 };
-
+ 
 export { api, makeRequest };
+ 
+ 

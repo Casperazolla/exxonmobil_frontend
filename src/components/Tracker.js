@@ -71,16 +71,81 @@ const mapApiVesselToLocal = (raw = {}, index = 0) => {
 };
 
 
+const DRAFT_STORAGE_KEY = 'azolla_onboard_draft_v1';
+
+const createFuel = () => ({
+  fuelName: "",
+  consumption: "",
+  price: ""
+});
+
+const createMachine = (name = "") => ({
+  machineName: name,
+  fuels: [createFuel()]
+});
+
+const getDefaultMachines = () => [
+  createMachine("Main engine"),
+  createMachine("Auxiliary engine"),
+];
+
+const getDefaultFormData = () => ({
+  month: '',
+  year: new Date().getFullYear(),
+  dockMonth: '',
+  owner: '',
+  vesselName: '',
+  vesselType: '',
+  buildYear: '',
+  flag: '',
+  classificationSociety: '',
+  imoNumber: '',
+  grossTonnage: '',
+  deadWeight: '',
+  sailingDays: '200',
+  nonSteamingDays: '165',
+  distanceNm: '60000',
+  euPct: '30',
+  euaCost: '75',
+  fI: '1.0',
+  fM: '1.0',
+  fC: '1.0',
+  fIvse: '1.0',
+  vesselLifeYears: '25',
+  vesselEndYear: '',
+  vesselEndMonth: '',
+  dockingYear: '',
+  commonImplMonth: '',
+  commonImplYear: '',
+  discountRate: '0.10',
+});
+
+function loadOnboardDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (e) {
+    console.warn('[onboard draft] Could not parse saved draft:', e);
+    return null;
+  }
+}
+
+
 
 
 function Tracker({ userEmail, isAdmin = false, onLogout }) {
+  const savedDraftRef = React.useRef(loadOnboardDraft());
+  const savedDraft = savedDraftRef.current;
+
   const [activeTab, setActiveTab] = useState('vessels');
   const [vessels, setVessels] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [onboardLoading, setOnboardLoading] = useState(false);
   const [simulatingId, setSimulatingId] = useState(null);
-  const [selectedEsds, setSelectedEsds] = useState([]);
+  const [selectedEsds, setSelectedEsds] = useState(savedDraft?.selectedEsds || []);
   const [vesselsLoading, setVesselsLoading] = useState(true);
   const [vesselsError, setVesselsError] = useState(null);
   const [simulationData, setSimulationData] = useState(null);
@@ -134,52 +199,26 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
 
 
 
-  const createFuel = () => ({
-    fuelName: "",
-    consumption: "",
-    price: ""
-  });
+  const [machines, setMachines] = useState(savedDraft?.machines || getDefaultMachines());
 
-  const createMachine = (name = "") => ({
-    machineName: name,
-    fuels: [createFuel()]
-  });
+  const [formData, setFormData] = useState(savedDraft?.formData || getDefaultFormData());
 
-  const [machines, setMachines] = useState([
-    createMachine("Main engine"),
-    createMachine("Auxiliary engine")
-  ]);
+  
+  useEffect(() => {
+    try {
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ formData, machines, selectedEsds }));
+    } catch (e) {
+      console.warn('[onboard draft] Could not save draft:', e);
+    }
+  }, [formData, machines, selectedEsds]);
 
-  const [formData, setFormData] = useState({
-    month: '',
-    year: new Date().getFullYear(),
-    dockMonth: '',
-    owner: '',
-    vesselName: '',
-    vesselType: '',
-    buildYear: '',
-    flag: '',
-    classificationSociety: '',
-    imoNumber: '',
-    grossTonnage: '',
-    deadWeight: '',
-    sailingDays: '200',
-    nonSteamingDays: '165',
-    distanceNm: '60000',
-    euPct: '30',
-    euaCost: '75',
-    fI: '1.0',
-    fM: '1.0',
-    fC: '1.0',
-    fIvse: '1.0',
-    vesselLifeYears: '25',
-    vesselEndYear: '',
-    vesselEndMonth: '',
-    dockingYear: '',
-    commonImplMonth: '',
-    commonImplYear: '',
-    discountRate: '0.10',
-  });
+  const resetForm = () => {
+    setFormData(getDefaultFormData());
+    setMachines(getDefaultMachines());
+    setSelectedEsds([]);
+    setEditingId(null);
+    try { localStorage.removeItem(DRAFT_STORAGE_KEY); } catch (e) {}
+  };
 
   const openOnboardModal = (vesselId = null) => {
     if (vesselId) {
@@ -189,36 +228,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         setEditingId(vesselId);
       }
     } else {
-      setFormData({
-        month: '',
-        year: new Date().getFullYear(),
-        dockMonth: '',
-        owner: '',
-        vesselName: '',
-        vesselType: '',
-        buildYear: '',
-        flag: '',
-        classificationSociety: '',
-        imoNumber: '',
-        grossTonnage: '',
-        deadWeight: '',
-        sailingDays: '200',
-        nonSteamingDays: '165',
-        distanceNm: '60000',
-        euPct: '30',
-        euaCost: '75',
-        fI: '1.0',
-        fM: '1.0',
-        fC: '1.0',
-        fIvse: '1.0',
-        vesselLifeYears: '25',
-        vesselEndYear: '',
-        vesselEndMonth: '',
-        dockingYear: '',
-        commonImplMonth: '',
-        commonImplYear: '',
-        discountRate: '0.10',
-      });
+     
       setEditingId(null);
     }
     setModalOpen(true);
@@ -514,6 +524,10 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
 
       await loadVessels();
       closeModal();
+      // Vessel saved successfully — clear the draft (including selected
+      // ESDs) so the next "+ Onboard Vessel" starts from a blank form
+      // instead of carrying over this vessel's selections.
+      resetForm();
     } catch (error) {
 
       console.error("Onboard Vessel Error:", error);
@@ -1036,13 +1050,26 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         <div className="modal-overlay"  onClick={closeModal}>
           <div className="modal" style={{height: "90vh"}} onClick={(e) => e.stopPropagation()}>
             <div className="modal-hd">
-              <div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <div style={{ fontSize: '14px', fontWeight: '600' }}>
                   {editingId ? 'Edit Vessel' : 'Onboard New Vessel'}
                 </div>
                 <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '2px' }}>
                   Fill in the vessel details. Yellow-highlighted fields are required.
                 </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{marginTop:4,alignSelf:'flex-start'}}
+                  title="Clear all entered vessel details, fuel particulars, and selected ESDs"
+                  onClick={() => {
+                    if (window.confirm('Reset the form? This clears all entered vessel details, fuel particulars, and selected ESDs.')) {
+                      resetForm();
+                    }
+                  }}
+                >
+                  ↺ Reset
+                </button>
               </div>
               <button className="btn btn-ghost" onClick={closeModal}>
                 ✕

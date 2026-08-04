@@ -2,21 +2,67 @@
  * pdfExport.js — Azolla ESD Report PDF Generator
  * Captures LIVE chart canvases + builds data tables using jsPDF native drawing.
  * No html2canvas dependency for data pages — only for chart capture.
- * 
+ *
  * CDN (public/index.html):
  *   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
  */
-
+ 
 const PW=210, PH=297, M=14, CW=PW-M*2, CH=PH-M*2;
 const GREEN='#1D9E75', DARK='#0f3d2e', RED='#DC2626', GRAY='#888888', BLACK='#1a1a1a', LIGHT='#f8f9fa';
-
+ 
 // ── helpers ──
 const fmt$ = n => { if(n==null||isNaN(n)) return '—'; const a=Math.abs(n); if(a>=1e6) return (n<0?'-':'')+'$'+(a/1e6).toFixed(1)+'M'; if(a>=1e3) return (n<0?'-':'')+'$'+Math.round(a).toLocaleString(); return (n<0?'-':'')+'$'+a.toFixed(0); };
 const fmtN = (n,d=0) => n!=null ? Number(n).toLocaleString(undefined,{maximumFractionDigits:d}) : '—';
 
-function capCanvas(id) { const c=document.getElementById(id); return c ? c.toDataURL('image/png') : null; }
-function capRef(el) { return el ? el.toDataURL('image/png') : null; }
+// ── SAFE image capture ──────────────────────────────────────────────
+// Chart.js canvases that live inside a currently-hidden tab pane
+// (display:none) can end up with 0 width/height, or with stale/unpainted
+// pixel data. Calling canvas.toDataURL() on those produces malformed PNG
+// bytes that crash jsPDF's addImage(). To guard against that we:
+//   1. Prefer the Chart.js instance's own toBase64Image() when available
+//      (it reads the chart's internal render state, which is more
+//      reliable than grabbing the raw <canvas> element).
+//   2. Verify the canvas actually has non-zero pixel dimensions first.
+//   3. Wrap everything in try/catch and return null on any failure so a
+//      single bad chart can't take down the whole report.
+function safeImageFromCanvas(canvas) {
+  if (!canvas) return null;
+  try {
+    if (!canvas.width || !canvas.height) return null; // 0×0 → guaranteed corrupt/empty
 
+    // Prefer Chart.js's own export — more reliable than raw canvas.toDataURL()
+    if (window.Chart && typeof window.Chart.getChart === 'function') {
+      const inst = window.Chart.getChart(canvas);
+      if (inst && typeof inst.toBase64Image === 'function') {
+        const img = inst.toBase64Image('image/png', 1);
+        if (img && img.length > 100) return img; // sanity check — not an empty/near-empty data URI
+      }
+    }
+
+    const raw = canvas.toDataURL('image/png');
+    if (raw && raw.length > 100) return raw;
+    return null;
+  } catch (e) {
+    console.warn('[pdfExport] Skipping unreadable chart canvas:', e);
+    return null;
+  }
+}
+
+function capCanvas(id) { return safeImageFromCanvas(document.getElementById(id)); }
+function capRef(el) { return safeImageFromCanvas(el); }
+
+// Safe wrapper around jsPDF addImage — never throws, just skips on failure
+function safeAddImage(p, img, x, y, w, h) {
+  if (!img) return false;
+  try {
+    p.addImage(img, 'PNG', x, y, w, h);
+    return true;
+  } catch (e) {
+    console.warn('[pdfExport] Skipping image that failed to embed:', e);
+    return false;
+  }
+}
+ 
 function hdr(p, name, imo, pg) {
   p.setFontSize(8); p.setFont('helvetica','bold'); p.setTextColor(GREEN);
   p.text('Azolla ESD Platform', M, 8);
@@ -26,26 +72,26 @@ function hdr(p, name, imo, pg) {
   p.setFontSize(7); p.setTextColor('#ccc'); p.text(`Page ${pg}`, PW-M, PH-5, {align:'right'});
   return 16;
 }
-
+ 
 function secTitle(p, text, y) {
   p.setFontSize(11); p.setFont('helvetica','bold'); p.setTextColor(BLACK); p.text(text, M, y);
   p.setDrawColor('#e0e0e0'); p.setLineWidth(0.3); p.line(M, y+2, PW-M, y+2);
   return y+7;
 }
-
+ 
 function kpiBox(p, label, value, color, x, y, w=58) {
   p.setFillColor(LIGHT); p.roundedRect(x, y, w, 15, 2, 2, 'F');
   p.setFontSize(7); p.setFont('helvetica','normal'); p.setTextColor(GRAY); p.text(label, x+3, y+5);
   p.setFontSize(12); p.setFont('helvetica','bold'); p.setTextColor(color||BLACK); p.text(String(value), x+3, y+12);
   p.setFont('helvetica','normal');
 }
-
+ 
 function infoRow(p, label, value, y, labelX=M+2, valX=M+50) {
   p.setFontSize(8); p.setFont('helvetica','normal'); p.setTextColor(GRAY); p.text(label, labelX, y);
   p.setTextColor(BLACK); p.text(String(value||'—'), valX, y);
   return y+5;
 }
-
+ 
 function tbl(p, heads, rows, y, ws) {
   const sc = CW / ws.reduce((s,w)=>s+w,0);
   const cw = ws.map(w=>w*sc);
@@ -66,13 +112,13 @@ function tbl(p, heads, rows, y, ws) {
   }
   return y+2;
 }
-
+ 
 function addChart(p, img, x, y, w, h) {
   if(!img) return y;
-  p.addImage(img, 'PNG', x, y, w, h);
-  return y+h+3;
+  const ok = safeAddImage(p, img, x, y, w, h);
+  return ok ? y+h+3 : y;
 }
-
+ 
 /**
  * Generate the full 6-page PDF report
  * @param {Object} opts
@@ -84,7 +130,7 @@ function addChart(p, img, x, y, w, h) {
 export async function generateReport(opts) {
   const { jsPDF } = window.jspdf;
   if(!jsPDF) { alert('jsPDF not loaded. Add CDN script to index.html'); return; }
-
+ 
   const { input, output, vesselName } = opts;
   const chartRefs = opts.chartRefs || {};
   const v=input?.vessel||{}, vm=input?.voyage_meta||{}, machines=input?.machines||[];
@@ -97,10 +143,10 @@ export async function generateReport(opts) {
   const tl=cii.graph3_esd?.esd_timeline||[];
   const cf=fin.monthly_cashflows||[];
   const now=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-
+ 
   const p = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   let y;
-
+ 
   // ═══════════════════════════════════════════════════════════════
   // PAGE 1 — COVER
   // ═══════════════════════════════════════════════════════════════
@@ -116,7 +162,7 @@ export async function generateReport(opts) {
   p.text(meta, PW/2, 140, {align:'center'});
   p.text(`Owner: ${v.name_of_owner||'—'} · Flag: ${v.flag||'—'}`, PW/2, 148, {align:'center'});
   p.text(`Report: ${now} · Analysis: ${vm.analysis_month}/${vm.analysis_year}`, PW/2, 156, {align:'center'});
-
+ 
   // ═══════════════════════════════════════════════════════════════
   // PAGE 2 — VESSEL + FUEL
   // ═══════════════════════════════════════════════════════════════
@@ -137,7 +183,7 @@ export async function generateReport(opts) {
   const totCost = machines.reduce((s,m)=>s+m.fuel_particulars.reduce((ss,fp)=>ss+(fp.consumption_mt||0)*(fp.fuel_price_usd_per_mt||0),0),0);
   fuelR.push(['Total','',fmtN(totC,2),'',fmt$(totCost)]);
   y = tbl(p,['Machine','Fuel','MT/yr','Price','Annual cost'],fuelR,y,[38,20,25,18,30]);
-
+ 
   // ═══════════════════════════════════════════════════════════════
   // PAGE 3 — ESD PROFILING
   // ═══════════════════════════════════════════════════════════════
@@ -153,7 +199,7 @@ export async function generateReport(opts) {
   y = secTitle(p, 'ESD Implementation Timeline', y);
   const tlR = tl.map(t=>[t.implementation_label,t.name,t.installation_req?.replace('_','-'),'+'+t.saving_pct+'%']);
   y = tbl(p,['Date','ESD','Type','Saving'],tlR,y,[22,60,20,18]);
-
+ 
   // ═══════════════════════════════════════════════════════════════
   // PAGE 4 — CII CHARTS
   // ═══════════════════════════════════════════════════════════════
@@ -163,15 +209,20 @@ export async function generateReport(opts) {
   const cH=55, halfW=CW/2-3;
   // Row 1: G1 + G3 side by side
   if(g1||g3) {
-    if(g1) { p.setFontSize(7); p.setTextColor(GRAY); p.text('Graph 1 — Baseline CII',M,y); p.addImage(g1,'PNG',M,y+2,halfW,cH); }
-    if(g3) { p.setFontSize(7); p.setTextColor(GRAY); p.text('Graph 3 — ESD Rollout',M+halfW+6,y); p.addImage(g3,'PNG',M+halfW+6,y+2,halfW,cH); }
+    if(g1) { p.setFontSize(7); p.setTextColor(GRAY); p.text('Graph 1 — Baseline CII',M,y); safeAddImage(p,g1,M,y+2,halfW,cH); }
+    if(g3) { p.setFontSize(7); p.setTextColor(GRAY); p.text('Graph 3 — ESD Rollout',M+halfW+6,y); safeAddImage(p,g3,M+halfW+6,y+2,halfW,cH); }
     y += cH+8;
   }
   // Row 2: G2 full width
-  if(g2) { p.setFontSize(7); p.setTextColor(GRAY); p.text('Graph 2 — Sailing Scenarios',M,y); y+=2; p.addImage(g2,'PNG',M,y,CW,cH+5); y+=cH+10; }
+  if(g2) { p.setFontSize(7); p.setTextColor(GRAY); p.text('Graph 2 — Sailing Scenarios',M,y); y+=2; safeAddImage(p,g2,M,y,CW,cH+5); y+=cH+10; }
   // Row 3: G4 full width
-  if(g4) { p.setFontSize(7); p.setTextColor(GRAY); p.text('Graph 4 — Combined (Sailing + ESD)',M,y); y+=2; p.addImage(g4,'PNG',M,y,CW,cH+5); y+=cH+10; }
-
+  if(g4) { p.setFontSize(7); p.setTextColor(GRAY); p.text('Graph 4 — Combined (Sailing + ESD)',M,y); y+=2; safeAddImage(p,g4,M,y,CW,cH+5); y+=cH+10; }
+  if(!g1 && !g2 && !g3 && !g4) {
+    p.setFontSize(8); p.setTextColor(GRAY);
+    p.text('CII charts were unavailable at export time — open the CII Strategy tab and try again.', M, y);
+    y += 8;
+  }
+ 
   // ═══════════════════════════════════════════════════════════════
   // PAGE 5 — EU COMPLIANCE
   // ═══════════════════════════════════════════════════════════════
@@ -191,7 +242,7 @@ export async function generateReport(opts) {
   y = secTitle(p, 'Year-by-Year Projection', y);
   const yrR = yearly.map(r=>[r.year,r.active_months+'mo',r.target?.toFixed(2),fmt$(r.vessel_fueleu_penalty_usd),fmt$(r.vessel_eua_cost_usd),fmt$(r.esd_fuel_savings_usd),fmt$(r.esd_eua_savings_usd),fmt$(r.esd_fueleu_savings_usd)]);
   y = tbl(p,['Year','Mo','Target','FuelEU','EUA cost','Fuel saved','EUA saved','FuelEU saved'],yrR,y,[13,10,16,22,22,22,22,22]);
-
+ 
   // ═══════════════════════════════════════════════════════════════
   // PAGE 6 — FINANCIALS + CHARTS
   // ═══════════════════════════════════════════════════════════════
@@ -205,17 +256,22 @@ export async function generateReport(opts) {
   kpiBox(p,'Investment',fmt$(fSum.total_investment_usd),RED,M+62,y);
   kpiBox(p,'Accum. savings',fmt$(fSum.accumulated_savings_usd),'#059669',M+124,y);
   y += 22;
-
+ 
   // Financial charts
   const cashImg=capRef(chartRefs.cash), opexImg=capRef(chartRefs.opex), overviewImg=capRef(chartRefs.overview);
   const fH=48;
-  if(opexImg) { p.setFontSize(7); p.setTextColor(GRAY); p.text('Yearly Savings',M,y); y+=2; p.addImage(opexImg,'PNG',M,y,CW,fH); y+=fH+5; }
+  if(opexImg) { p.setFontSize(7); p.setTextColor(GRAY); p.text('Yearly Savings',M,y); y+=2; safeAddImage(p,opexImg,M,y,CW,fH); y+=fH+5; }
   if(cashImg||overviewImg) {
-    if(cashImg) { p.setFontSize(7); p.setTextColor(GRAY); p.text('Accumulated Cashflow',M,y); p.addImage(cashImg,'PNG',M,y+2,halfW,fH); }
-    if(overviewImg) { p.setFontSize(7); p.setTextColor(GRAY); p.text('Investment Overview',M+halfW+6,y); p.addImage(overviewImg,'PNG',M+halfW+6,y+2,halfW,fH); }
+    if(cashImg) { p.setFontSize(7); p.setTextColor(GRAY); p.text('Accumulated Cashflow',M,y); safeAddImage(p,cashImg,M,y+2,halfW,fH); }
+    if(overviewImg) { p.setFontSize(7); p.setTextColor(GRAY); p.text('Investment Overview',M+halfW+6,y); safeAddImage(p,overviewImg,M+halfW+6,y+2,halfW,fH); }
     y+=fH+8;
   }
-
+  if(!opexImg && !cashImg && !overviewImg) {
+    p.setFontSize(8); p.setTextColor(GRAY);
+    p.text('Financial charts were unavailable at export time — open the Financial tab and try again.', M, y);
+    y += 8;
+  }
+ 
   // Compact cashflow table
   if(cf.length>0 && y<PH-40) {
     y = secTitle(p, 'Monthly Cashflow', y);
@@ -223,6 +279,6 @@ export async function generateReport(opts) {
     const cfR = show.map(r=>[r.date,r.investment>0?'-'+fmt$(r.investment):'—',r.fuel_savings>0?fmt$(r.fuel_savings):'—',fmt$(r.net_cashflow),fmt$(r.cumulative_cashflow)]);
     y = tbl(p,['Date','Invest','Fuel $','Net','Cumulative'],cfR,y,[22,30,30,30,30]);
   }
-
+ 
   p.save(opts.filename || `${name}_ESD_Report.pdf`);
 }
