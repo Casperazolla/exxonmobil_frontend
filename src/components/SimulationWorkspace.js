@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { simulationAPI } from '../services/apiService';
 import { generateReport } from '../utils/pdfExport';
+import { generateReport } from '../utils/pdfExport';
 
 // =====================================================================
 // HELPERS
@@ -1003,6 +1004,7 @@ function EuTaxTab({ out }) {
 export default function SimulationWorkspace({ vesselId, vesselName, sessionMode, initialReport, vesselReports, onBack }) {
   const [loading,    setLoading]    = useState(false);
   const [running,    setRunning]    = useState(false);
+  const [pdfLoading, setPdfLoading]  = useState(false);
   const [reportData, setReportData] = useState(null);
   const [error,      setError]      = useState(null);
   const [activeTab,  setActiveTab]  = useState('fuel');
@@ -1339,7 +1341,8 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
             {feuP.compliant===false&&<span style={{padding:'3px 8px',borderRadius:10,fontSize:9,fontWeight:600,background:'#FEE2E2',color:'var(--red)'}}>FuelEU Non-Compliant</span>}
             {grade&&<span style={{padding:'3px 8px',borderRadius:10,fontSize:9,fontWeight:600,background:'var(--gl)',color:'var(--green)'}}>CII Grade {grade}</span>}
             {reportData && (
-              <button className="btn btn-secondary btn-sm" onClick={async()=>{
+              <button className="btn btn-secondary btn-sm" disabled={pdfLoading} onClick={async()=>{
+                setPdfLoading(true);
                 try{
                   await generateReport({
                     input: reportData?.input || {},
@@ -1353,8 +1356,10 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
                     filename: `${v.vessel_name||vesselName||'Report'}_ESD_Report.pdf`,
                   });
                 } catch(e){console.error('PDF error:',e);alert('PDF generation failed: '+e.message);}
+                finally{setPdfLoading(false);}
               }}>
-                <i className="ti ti-file-download"></i> PDF Report
+                <i className={`ti ${pdfLoading?'ti-loader-2':'ti-file-download'}`}></i>
+                {pdfLoading ? ' Generating...' : ' PDF Report'}
               </button>
             )}
             <button className="btn btn-secondary btn-sm" onClick={()=>setSidebarOpen(o=>!o)}>
