@@ -915,14 +915,13 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                                   <button className="btn btn-secondary btn-sm"
                                     onClick={() => openOnboardModal(vessel.id)}>✏️ Edit</button>
                                 )} */}
-                                {isAdmin && (
-                                  <button
-                                    className="btn btn-danger btn-sm"
-                                    onClick={() => deleteVessel(vessel.id)}
-                                  >
-                                    🗑️
-                                  </button>
-                                )}
+                                <button
+                                  className="btn btn-danger btn-sm"
+                                  title="Delete vessel"
+                                  onClick={() => deleteVessel(vessel.id)}
+                                >
+                                  🗑️
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -1698,75 +1697,47 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                           <div className="selected-esd-fields">
 
                             <div className="selected-esd-field">
-
                               <label>Efficiency Gain (%)</label>
-
                               <input
-                                value={
-                                  selectedEsds.find(esd => esd.id === item.id)
-                                    ?.efficiency_gain_percent || ""
-                                }
+                                value={selectedEsds.find(esd => esd.id === item.id)?.efficiency_gain_percent || ""}
+                                readOnly={!isAdmin}
+                                style={!isAdmin ? {background:'var(--surface-1)',color:'var(--ink3)',cursor:'not-allowed'} : {}}
                                 onChange={(e) => {
-
-                                  setSelectedEsds(prev =>
-                                    prev.map(esd =>
-                                      esd.id === item.id
-                                        ? {
-                                          ...esd,
-                                          efficiency_gain_percent: e.target.value
-                                        }
-                                        : esd
-                                    )
-                                  );
-
+                                  if (!isAdmin) return;
+                                  setSelectedEsds(prev => prev.map(esd =>
+                                    esd.id === item.id ? {...esd, efficiency_gain_percent: e.target.value} : esd
+                                  ));
                                 }}
                               />
-
                             </div>
 
                             <div className="selected-esd-field">
-
                               <label>Cost (USD)</label>
-
                               <input
-                                value={
-                                  selectedEsds.find(esd => esd.id === item.id)
-                                    ?.cost_usd || ""
-                                }
+                                value={selectedEsds.find(esd => esd.id === item.id)?.cost_usd || ""}
+                                readOnly={!isAdmin}
+                                style={!isAdmin ? {background:'var(--surface-1)',color:'var(--ink3)',cursor:'not-allowed'} : {}}
                                 onChange={(e) => {
-
-                                  setSelectedEsds(prev =>
-                                    prev.map(esd =>
-                                      esd.id === item.id
-                                        ? {
-                                          ...esd,
-                                          cost_usd: e.target.value
-                                        }
-                                        : esd
-                                    )
-                                  );
-
+                                  if (!isAdmin) return;
+                                  setSelectedEsds(prev => prev.map(esd =>
+                                    esd.id === item.id ? {...esd, cost_usd: e.target.value} : esd
+                                  ));
                                 }}
                               />
-
                             </div>
 
                             <div className="selected-esd-field">
                               <label>Lead Time (months)</label>
                               <input
                                 type="number" min="1" max="24"
-                                value={
-                                  selectedEsds.find(esd => esd.id === item.id)
-                                    ?.lead_time_months || ""
-                                }
+                                value={selectedEsds.find(esd => esd.id === item.id)?.lead_time_months || ""}
+                                readOnly={!isAdmin}
+                                style={!isAdmin ? {background:'var(--surface-1)',color:'var(--ink3)',cursor:'not-allowed'} : {}}
                                 onChange={(e) => {
-                                  setSelectedEsds(prev =>
-                                    prev.map(esd =>
-                                      esd.id === item.id
-                                        ? { ...esd, lead_time_months: e.target.value }
-                                        : esd
-                                    )
-                                  );
+                                  if (!isAdmin) return;
+                                  setSelectedEsds(prev => prev.map(esd =>
+                                    esd.id === item.id ? {...esd, lead_time_months: e.target.value} : esd
+                                  ));
                                 }}
                               />
                             </div>
@@ -1774,20 +1745,15 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                             <div className="selected-esd-field">
                               <label>Installation</label>
                               <select
-                                value={
-                                  selectedEsds.find(esd => esd.id === item.id)
-                                    ?.installation_req || "in_sailing"
-                                }
+                                value={selectedEsds.find(esd => esd.id === item.id)?.installation_req || "in_sailing"}
+                                disabled={!isAdmin}
+                                style={{padding:'6px 8px',border:'1px solid var(--border)',borderRadius:4,fontSize:12,width:'100%',...(!isAdmin?{background:'var(--surface-1)',color:'var(--ink3)',cursor:'not-allowed'}:{})}}
                                 onChange={(e) => {
-                                  setSelectedEsds(prev =>
-                                    prev.map(esd =>
-                                      esd.id === item.id
-                                        ? { ...esd, installation_req: e.target.value }
-                                        : esd
-                                    )
-                                  );
+                                  if (!isAdmin) return;
+                                  setSelectedEsds(prev => prev.map(esd =>
+                                    esd.id === item.id ? {...esd, installation_req: e.target.value} : esd
+                                  ));
                                 }}
-                                style={{padding:'6px 8px',border:'1px solid var(--border)',borderRadius:4,fontSize:12,width:'100%'}}
                               >
                                 <option value="in_sailing">In-Sailing</option>
                                 <option value="docking">Docking</option>
