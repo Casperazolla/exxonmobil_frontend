@@ -227,7 +227,7 @@ export default function CiiTab({ output }) {
                   dataKey="x"
                   type="number"
                   scale="linear"
-                  domain={esdLine.length ? [esdLine[0].x, esdLine[esdLine.length-1].x] : ['auto','auto']}
+                  domain={esdLine.length ? [Math.floor(esdLine[0].x), Math.ceil(esdLine[esdLine.length-1].x)] : ['auto','auto']}
                   tickFormatter={v => {
                     if (!Number.isFinite(v)) return '';
                     const yr = Math.floor(v);
@@ -280,7 +280,7 @@ export default function CiiTab({ output }) {
                 dataKey="x"
                 type="number"
                 scale="linear"
-                domain={combChartData.length ? [combChartData[0].x, combChartData[combChartData.length-1].x] : ['auto','auto']}
+                domain={combChartData.length ? [Math.floor(combChartData[0].x), Math.ceil(combChartData[combChartData.length-1].x)] : ['auto','auto']}
                 tickFormatter={v => {
                   if (!Number.isFinite(v)) return '';
                   const yr = Math.floor(v);
