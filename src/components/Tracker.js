@@ -51,7 +51,22 @@ const mapApiVesselToLocal = (raw = {}, index = 0) => {
     lastReport: raw.last_report ?? raw.lastReport ?? null,
     lastReportDate: raw.last_report_date ?? null,
     machines,
-    selectedEsds: esdMeasures.map((e) => e.id).filter(Boolean),
+    // Keep full ESD objects from saved data so user-edited values are preserved.
+    // Match each saved ESD to its library entry by name to get the id for checkbox sync.
+    selectedEsds: esdMeasures.map((e) => {
+      const libMatch = ESD_LIBRARY.find(lib => lib.name === e.name);
+      return {
+        id: e.id || libMatch?.id || e.name,
+        name: e.name,
+        category: e.category,
+        saving: e.efficiency_gain_percent || e.saving || 0,
+        capex: e.cost_usd || e.capex || 0,
+        efficiency_gain_percent: e.efficiency_gain_percent || e.saving || 0,
+        cost_usd: e.cost_usd || e.capex || 0,
+        lead_time_months: e.lead_time_months || 4,
+        installation_req: e.installation_req || 'in_sailing',
+      };
+    }),
   };
 };
 
@@ -448,8 +463,8 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         .map(esd => ({
           category: (esd.category || 'operations').toLowerCase(),
           name: esd.name,
-          efficiency_gain_percent: parseFloat(esd.efficiency_gain_percent) || parseFloat(esd.saving) || 0,
-          cost_usd: parseFloat(esd.cost_usd) || parseFloat(esd.capex) || 0,
+          efficiency_gain_percent: parseFloat(esd.efficiency_gain_percent) || 0,
+          cost_usd: parseFloat(esd.cost_usd) || 0,
           lead_time_months: parseInt(esd.lead_time_months, 10) || 4,
           installation_req: esd.installation_req || 'in_sailing',
         })),
@@ -654,10 +669,14 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
       ...prev,
       {
         ...selected,
-        efficiency_gain_percent: selected.saving,
-        cost_usd: selected.capex,
+        // User-editable fields — these are what the payload reads
+        efficiency_gain_percent: selected.saving || 0,
+        cost_usd: selected.capex || 0,
         lead_time_months: selected.lead_time_months || 4,
         installation_req: selected.installation_req || 'in_sailing',
+        // Clear library-only keys to avoid || priority confusion in payload
+        saving: undefined,
+        capex: undefined,
       }
     ]);
 

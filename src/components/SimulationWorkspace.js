@@ -1,8 +1,7 @@
 /* eslint-disable no-unused-vars, react-hooks/exhaustive-deps */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { simulationAPI } from '../services/apiService';
-import PdfReport from './PdfReport';
-import { generatePdf } from '../utils/pdfExport';
+import { generateReport } from '../utils/pdfExport';
 
 // =====================================================================
 // HELPERS
@@ -815,14 +814,14 @@ function FinancialTab({ out }) {
           <span className="card-title">Yearly Savings (Stacked)</span>
           <span style={{fontSize:9,color:'var(--purple)'}}>FuelEU grows from 2030</span>
         </div>
-        <div className="card-body"><div className="ch h300"><canvas ref={opexRef}></canvas></div></div>
+        <div className="card-body"><div className="ch h300"><canvas ref={opexRef} data-chart-id="opex"></canvas></div></div>
       </div>
 
       <div className="g2">
         <div className="card"><div className="card-hd"><span className="card-title">Accumulated Cashflow</span><span style={{fontSize:9,color:'var(--amber)'}}>▲ = docking months</span></div>
-          <div className="card-body"><div className="ch h300"><canvas ref={cashRef}></canvas></div></div></div>
+          <div className="card-body"><div className="ch h300"><canvas ref={cashRef} data-chart-id="cash"></canvas></div></div></div>
         <div className="card"><div className="card-hd"><span className="card-title">Investment Overview — {out?.input?.vessel?.vessel_name || '—'}</span><span style={{fontSize:9,color:'var(--ink3)'}}>Total cost vs returns</span></div>
-          <div className="card-body"><div className="ch h300"><canvas ref={overviewRef}></canvas></div></div></div>
+          <div className="card-body"><div className="ch h300"><canvas ref={overviewRef} data-chart-id="overview"></canvas></div></div></div>
       </div>
 
       {/* Monthly Breakdown toggle */}
@@ -1031,7 +1030,6 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
   const [discountRate,    setDiscountRate]     = useState(0.10);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [simLoading, setSimLoading] = useState(false);
 
   const mark = () => setEditCount(c=>c+1);
 
@@ -1114,7 +1112,6 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
 
   // ── run simulation ────────────────────────────────────────────────────
   const runSim = async () => {
-    setSimLoading(true);
     console.log('[runSim] Starting — vesselMeta:', !!vesselMeta, 'sessionMode:', sessionMode, 'reportId:', reportId);
     if(!vesselMeta) { setError('Vessel data not loaded yet.'); return; }
     setRunning(true); setError(null);
@@ -1202,9 +1199,6 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
 
   return(
     <div style={{display:'flex',width:'100%',height:'calc(100vh - 52px)',overflow:'hidden',position:'relative'}}>
-
-      {/* Hidden PDF report — captured by html2canvas for PDF export */}
-      <PdfReport out={reportData?.output||reportData} input={reportData?.input||{}} vesselName={v.vessel_name||vesselName} vesselImage={null} />
 
       {/* Full-screen simulation loader */}
       {running && (
@@ -1346,8 +1340,19 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
             {grade&&<span style={{padding:'3px 8px',borderRadius:10,fontSize:9,fontWeight:600,background:'var(--gl)',color:'var(--green)'}}>CII Grade {grade}</span>}
             {reportData && (
               <button className="btn btn-secondary btn-sm" onClick={async()=>{
-                try{await generatePdf('pdf-report-container',`${v.vessel_name||vesselName||'Report'}_ESD_Report.pdf`);}
-                catch(e){console.error('PDF error:',e);alert('PDF generation failed: '+e.message);}
+                try{
+                  await generateReport({
+                    input: reportData?.input || {},
+                    output: reportData?.output || reportData,
+                    vesselName: v.vessel_name || vesselName || 'Report',
+                    chartRefs: {
+                      cash: document.querySelector('canvas[data-chart-id="cash"]'),
+                      opex: document.querySelector('canvas[data-chart-id="opex"]'),
+                      overview: document.querySelector('canvas[data-chart-id="overview"]'),
+                    },
+                    filename: `${v.vessel_name||vesselName||'Report'}_ESD_Report.pdf`,
+                  });
+                } catch(e){console.error('PDF error:',e);alert('PDF generation failed: '+e.message);}
               }}>
                 <i className="ti ti-file-download"></i> PDF Report
               </button>
