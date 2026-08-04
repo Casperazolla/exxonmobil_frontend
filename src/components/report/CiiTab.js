@@ -27,6 +27,14 @@ function buildAnnualBounds(monthly) {
     const yr = parseInt(r.date);
 
     if (!byYear[yr]) byYear[yr] = r;
+<<<<<<< HEAD
+=======
+  });
+  return Object.values(byYear)
+    .sort((a, b) => parseInt(a.date) - parseInt(b.date))
+    .map(r => ({ ...r, x: parseInt(r.date) }));  // x = year integer
+}
+>>>>>>> c290d0eee04ff0a8776f4a1660f1e156ff674342
 
   });
 
@@ -39,9 +47,13 @@ function buildAnnualBounds(monthly) {
 }
  
 // Convert monthly data to decimal-year step format for recharts
+<<<<<<< HEAD
 
 // Carries attained_cii as step line + required_cii + install flag
 
+=======
+// Carries attained_cii as step line + required_cii + install flag
+>>>>>>> c290d0eee04ff0a8776f4a1660f1e156ff674342
 function buildStepLine(monthly) {
 
   const pts = [];
@@ -53,6 +65,7 @@ function buildStepLine(monthly) {
     const x = yr + (mo - 1) / 12;
 
     const prev = i > 0 ? monthly[i - 1] : null;
+<<<<<<< HEAD
 
     const base = { x, req: r.required_cii, install: r.newly_installed?.length > 0 };
 
@@ -70,10 +83,23 @@ function buildStepLine(monthly) {
 
       pts.push({ ...base, y: r.attained_cii });
 
+=======
+    const base = { x, req: r.required_cii, install: r.newly_installed?.length > 0 };
+    if (i === 0) { pts.push({ ...base, y: r.attained_cii }); return; }
+    if (r.attained_cii !== prev?.attained_cii) {
+      // Insert step: hold previous value at this x, then drop
+      pts.push({ x, req: r.required_cii, y: prev.attained_cii });
+      pts.push({ ...base, y: r.attained_cii });
+    } else {
+      pts.push({ ...base, y: r.attained_cii });
+>>>>>>> c290d0eee04ff0a8776f4a1660f1e156ff674342
     }
 
   });
+<<<<<<< HEAD
 
+=======
+>>>>>>> c290d0eee04ff0a8776f4a1660f1e156ff674342
   return pts;
 
 }
@@ -109,9 +135,13 @@ export default function CiiTab({ output }) {
   const baselineChartData = useMemo(() => {
 
     return annualBounds.map(r => ({
+<<<<<<< HEAD
 
       x: parseInt(r.date),
 
+=======
+      x: parseInt(r.date),
+>>>>>>> c290d0eee04ff0a8776f4a1660f1e156ff674342
       req: r.required_cii,
 
       d1: r.d1, d2: r.d2, d3: r.d3, d4: r.d4,
@@ -133,6 +163,7 @@ export default function CiiTab({ output }) {
   const sailingChartData = useMemo(() => {
 
     return baselineChartData.map(row => {
+<<<<<<< HEAD
 
       const pt = { x: row.x, req: row.req, d1: row.d1, d2: row.d2, d3: row.d3, d4: row.d4 };
 
@@ -140,6 +171,11 @@ export default function CiiTab({ output }) {
 
         const match = (sailing[k] || []).find(r => parseInt(r.date) === row.x);
 
+=======
+      const pt = { x: row.x, req: row.req, d1: row.d1, d2: row.d2, d3: row.d3, d4: row.d4 };
+      sailKeys.forEach(k => {
+        const match = (sailing[k] || []).find(r => parseInt(r.date) === row.x);
+>>>>>>> c290d0eee04ff0a8776f4a1660f1e156ff674342
         if (match) pt[k] = match.attained_cii;
 
       });
@@ -162,7 +198,34 @@ export default function CiiTab({ output }) {
 
       result[k] = buildStepLine(combined[k] || []);
 
+<<<<<<< HEAD
     });
+=======
+  // Combined sailing+ESD — build step lines from MONTHLY data per scenario
+  // Using buildStepLine per scenario so the monthly ESD drops are visible
+  const combStepLines = useMemo(() => {
+    const result = {};
+    combKeys.forEach(k => {
+      result[k] = buildStepLine(combined[k] || []);
+    });
+    return result;
+  }, [combined, combKeys]);
+
+  // Merge all scenarios into a single dataset aligned on x
+  const combChartData = useMemo(() => {
+    const allX = new Set();
+    combKeys.forEach(k => (combStepLines[k] || []).forEach(p => allX.add(p.x)));
+    const sorted = [...allX].sort((a, b) => a - b);
+    return sorted.map(x => {
+      const pt = { x };
+      combKeys.forEach(k => {
+        const p = (combStepLines[k] || []).find(r => r.x === x);
+        if (p) { pt[k] = p.y; if (!pt.req) pt.req = p.req; }
+      });
+      return pt;
+    });
+  }, [combStepLines, combKeys]);
+>>>>>>> c290d0eee04ff0a8776f4a1660f1e156ff674342
 
     return result;
 
@@ -267,6 +330,7 @@ export default function CiiTab({ output }) {
 <div className="r-card-hd">
 
           Graph 1: Baseline CII (No ESD)
+<<<<<<< HEAD
 <span className="hd-sub">Attained vs Required CII with grade bands</span>
 </div>
 <div className="r-card-body">
@@ -289,6 +353,158 @@ export default function CiiTab({ output }) {
 
                   tick={{ fontSize: 10 }}
 
+=======
+          <span className="hd-sub">Attained vs Required CII with grade bands</span>
+        </div>
+        <div className="r-card-body">
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={baselineChartData} margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
+              <CartesianGrid stroke="#F1F5F9" strokeOpacity={0.8} vertical={false} />
+              <XAxis dataKey="x" type="number" scale="linear" tickFormatter={v => {
+                    if (!Number.isFinite(v)) return '';
+                    const yr = Math.floor(v);
+                    const mo = Math.round((v - yr) * 12) + 1;
+                    return mo === 1 ? String(yr) : '';
+                  }}
+                  ticks={baselineChartData.map(r => r.x)}
+                  tick={{ fontSize: 10 }}
+                />
+              <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10 }} />
+              <Tooltip content={<CIITooltip />} />
+              <Line dataKey="d1" stroke={GRADE_COLORS.A} strokeWidth={1} strokeDasharray="3 3" dot={false} name="D1 (A/B)" />
+              <Line dataKey="d2" stroke={GRADE_COLORS.B} strokeWidth={1} strokeDasharray="3 3" dot={false} name="D2 (B/C)" />
+              <Line dataKey="d3" stroke={GRADE_COLORS.C} strokeWidth={1} strokeDasharray="3 3" dot={false} name="D3 (C/D)" />
+              <Line dataKey="d4" stroke={GRADE_COLORS.D} strokeWidth={1} strokeDasharray="3 3" dot={false} name="D4 (D/E)" />
+              <Line dataKey="req" stroke="#1E293B" strokeWidth={1.5} strokeDasharray="6 3" dot={false} name="Required CII" />
+              <Line dataKey="att" stroke="#1D9E75" strokeWidth={2.5} dot={{ r: 3, fill: '#1D9E75' }} name="Attained CII" />
+              <Legend wrapperStyle={{ fontSize: 10 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="r-two-col">
+        {/* Graph 2 — Sailing scenarios */}
+        <div className="r-card">
+          <div className="r-card-hd">Graph 2: Sailing Profile Scenarios</div>
+          <div className="r-card-body">
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={sailingChartData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
+                <CartesianGrid stroke="#F1F5F9" vertical={false} />
+                <XAxis dataKey="x" type="number" scale="linear" tickFormatter={v => {
+                    if (!Number.isFinite(v)) return '';
+                    const yr = Math.floor(v);
+                    const mo = Math.round((v - yr) * 12) + 1;
+                    return mo === 1 ? String(yr) : '';
+                  }}
+                  ticks={sailingChartData.map(r => r.x)}
+                  tick={{ fontSize: 10 }}
+                />
+                <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10 }} />
+                <Tooltip content={<CIITooltip />} />
+                <Line dataKey="req" stroke="#1E293B" strokeWidth={1.5} strokeDasharray="6 3" dot={false} name="Required" />
+                {sailKeys.map((k, i) => (
+                  <Line key={k} dataKey={k} stroke={SAIL_COLORS[i % SAIL_COLORS.length]} strokeWidth={1.5} dot={false} name={k} />
+                ))}
+                <Legend wrapperStyle={{ fontSize: 10 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Graph 3 — ESD step-down */}
+        <div className="r-card">
+          <div className="r-card-hd">
+            Graph 3: ESD Implementation Timeline
+            <span className="hd-sub">{esdTimeline.length} ESDs</span>
+          </div>
+          <div className="r-card-body">
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={esdLine} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
+                <CartesianGrid stroke="#F1F5F9" vertical={false} />
+                <XAxis
+                  dataKey="x"
+                  type="number"
+                  scale="linear"
+                  domain={esdLine.length ? [esdLine[0].x, esdLine[esdLine.length-1].x] : ['auto','auto']}
+                  tickFormatter={v => {
+                    if (!Number.isFinite(v)) return '';
+                    const yr = Math.floor(v);
+                    const mo = Math.round((v - yr) * 12) + 1;
+                    return mo === 1 ? String(yr) : '';
+                  }}
+                  ticks={(() => {
+                    if (!esdLine.length) return [];
+                    const start = Math.floor(esdLine[0].x);
+                    const end = Math.ceil(esdLine[esdLine.length-1].x);
+                    const tks = [];
+                    for (let yr = start; yr <= end; yr++) tks.push(yr);
+                    return tks;
+                  })()}
+                  tick={{ fontSize: 10 }}
+                />
+                <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10 }} />
+                <Tooltip formatter={(v) => [v?.toFixed(4), 'Attained CII']} labelFormatter={l => l?.toFixed(2)} />
+                {esdTimeline.map((t, i) => (
+                  <ReferenceLine
+                    key={i}
+                    x={t.implementation_date[0] + (t.implementation_date[1] - 1) / 12}
+                    stroke="#F59E0B" strokeWidth={1} strokeDasharray="4 3"
+                  />
+                ))}
+                <Line dataKey="req" stroke="#D97706" strokeWidth={1.5} strokeDasharray="6 3" dot={false} name="Required CII" connectNulls />
+                <Line dataKey="y" stroke="#1D9E75" strokeWidth={2.5} dot={false} name="CII with ESDs" connectNulls />
+              </LineChart>
+            </ResponsiveContainer>
+            {/* ESD timeline legend */}
+            <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6, fontSize: 10, color: '#64748B' }}>
+              {esdTimeline.map((t, i) => (
+                <span key={i} style={{ background: '#FEF3C7', color: '#92400E', padding: '1px 6px', borderRadius: 3 }}>
+                  {t.implementation_label}: {t.name} (+{t.saving_pct}%)
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Graph 4 — Combined */}
+      <div className="r-card">
+        <div className="r-card-hd">Graph 4: Combined — Sailing + ESD</div>
+        <div className="r-card-body">
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={combChartData} margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
+              <CartesianGrid stroke="#F1F5F9" vertical={false} />
+              <XAxis
+                dataKey="x"
+                type="number"
+                scale="linear"
+                domain={combChartData.length ? [combChartData[0].x, combChartData[combChartData.length-1].x] : ['auto','auto']}
+                tickFormatter={v => {
+                  if (!Number.isFinite(v)) return '';
+                  const yr = Math.floor(v);
+                  const mo = Math.round((v - yr) * 12) + 1;
+                  return mo === 1 ? String(yr) : '';
+                }}
+                ticks={(() => {
+                  if (!combChartData.length) return [];
+                  const start = Math.floor(combChartData[0].x);
+                  const end = Math.ceil(combChartData[combChartData.length-1].x);
+                  const tks = [];
+                  for (let yr = start; yr <= end; yr++) tks.push(yr);
+                  return tks;
+                })()}
+                tick={{ fontSize: 10 }}
+              />
+              <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10 }} />
+              <Tooltip content={<CIITooltip />} />
+              <Line dataKey="req" stroke="#1E293B" strokeWidth={1.5} strokeDasharray="6 3" dot={false} name="Required" />
+              {filterKeys.map((k, i) => (
+                <Line
+                  key={k} dataKey={k}
+                  stroke={SAIL_COLORS[combKeys.indexOf(k) % SAIL_COLORS.length]}
+                  strokeWidth={2} dot={false} name={k}
+>>>>>>> c290d0eee04ff0a8776f4a1660f1e156ff674342
                 />
 <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10 }} />
 <Tooltip content={<CIITooltip />} />
@@ -509,6 +725,10 @@ export default function CiiTab({ output }) {
 </div>
 
   );
+<<<<<<< HEAD
 
 }
  
+=======
+}
+>>>>>>> c290d0eee04ff0a8776f4a1660f1e156ff674342
