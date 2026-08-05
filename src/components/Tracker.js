@@ -813,7 +813,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
           isOnlyReport={vesselReports.length === 1}
           vesselReports={vesselReports}
           onBack={() => setActiveTab('vessels')}
-        />
+ isAdmin={isAdmin}         />
       )}
 
       {/* Main Content (vessels page only) */}
