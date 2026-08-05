@@ -641,10 +641,12 @@ function CiiTab({ out }) {
       <div className="g2" style={{marginBottom:14}}>
         <div className="card"><div className="card-hd"><span className="card-title">Graph 1 — Baseline CII</span><span className="bv bv-g">No ESDs</span></div>
           <div className="card-body"><div className="ch h280"  style={{height: "400px"}}><canvas id="sim-g1"></canvas></div></div></div>
-        <div className="card"><div className="card-hd"><span className="card-title">Graph 3 — With ESD Rollout</span><EsdScheduleInfo timeline={esdTimeline}/></div>
-          <div className="card-body"><div className="ch h280"  style={{height: "400px"}}><canvas id="sim-g3"></canvas></div></div></div>
+       
         <div className="card"><div className="card-hd"><span className="card-title">Graph 2 — Sailing Profile Scenarios</span></div>
           <div className="card-body"><div className="ch h280" style={{height: "400px"}}><canvas id="sim-g2"></canvas></div></div></div>
+ <div className="card"><div className="card-hd"><span className="card-title">Graph 3 — With ESD Rollout</span><EsdScheduleInfo timeline={esdTimeline}/></div>
+          <div className="card-body"><div className="ch h280"  style={{height: "400px"}}><canvas id="sim-g3"></canvas></div></div></div>
+
         <div className="card"><div className="card-hd"><span className="card-title">Graph 4 — Sailing + ESD Combined</span><EsdScheduleInfo timeline={esdTimeline}/></div>
           <div className="card-body"><div className="ch h280"  style={{height: "400px"}}><canvas id="sim-g4"></canvas></div></div></div>
       </div>
