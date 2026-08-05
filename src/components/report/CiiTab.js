@@ -43,9 +43,25 @@ function buildStepLine(monthly) {
   return pts;
 }
 
+// Collect the widest year range across ALL series so every graph's axis
+// stays in sync even if one backend array (esd / combined) wasn't
+// extrapolated as far forward as another (baseline).
+function getSharedYearRange(seriesArrays) {
+  let allX = [];
+  seriesArrays.forEach(arr => {
+    (arr || []).forEach(p => {
+      if (p && Number.isFinite(p.x)) allX.push(p.x);
+    });
+  });
+  if (!allX.length) return null;
+  return {
+    start: Math.floor(Math.min(...allX)),
+    end: Math.ceil(Math.max(...allX)),
+  };
+}
+
 export default function CiiTab({ output }) {
-  console.log('CII output prop:', output);
-  console.log('CII object:', output?.cii);
+  console.log('>>> CiiTab MOUNTED, output:', output);
   const [sailFilter, setSailFilter] = useState('all');
   const cii = output?.cii || {};
 
@@ -109,6 +125,44 @@ export default function CiiTab({ output }) {
     });
   }, [combStepLines, combKeys]);
 
+  // TEMP DEBUG — remove after diagnosing
+  console.log('baseline last x:', baselineChartData[baselineChartData.length - 1]);
+  console.log('esdMonthly raw last entry:', esdMonthly[esdMonthly.length - 1]);
+  console.log('esdLine last x:', esdLine[esdLine.length - 1]);
+  console.log('combined keys:', combKeys);
+  combKeys.forEach(k => {
+    const raw = combined[k] || [];
+    console.log(`combined[${k}] raw last entry:`, raw[raw.length - 1]);
+  });
+  console.log('combChartData last x:', combChartData[combChartData.length - 1]);
+
+  // --- SHARED AXIS RANGE ---
+  // Instead of each graph deriving its own domain/ticks from only its own
+  // array (which silently truncates the axis whenever that particular
+  // series is shorter than the others), compute one range from everything
+  // and reuse it everywhere. This is the actual fix for the graph 3/4
+  // truncation issue.
+  const yearRange = useMemo(
+    () => getSharedYearRange([baselineChartData, esdLine, combChartData]),
+    [baselineChartData, esdLine, combChartData]
+  );
+
+  const rangeTicks = useMemo(() => {
+    if (!yearRange) return [];
+    const tks = [];
+    for (let yr = yearRange.start; yr <= yearRange.end; yr++) tks.push(yr);
+    return tks;
+  }, [yearRange]);
+
+  const rangeDomain = yearRange ? [yearRange.start, yearRange.end + 0.01] : ['auto', 'auto'];
+
+  const yearTickFormatter = v => {
+    if (!Number.isFinite(v)) return '';
+    const yr = Math.floor(v);
+    const mo = Math.round((v - yr) * 12) + 1;
+    return mo === 1 ? String(yr) : '';
+  };
+
   const CIITooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     return (
@@ -125,6 +179,9 @@ export default function CiiTab({ output }) {
 
   return (
     <div>
+      <div style={{ background: 'red', color: 'white', fontSize: 24, padding: 20, fontWeight: 'bold' }}>
+        DEBUG MARKER 12345 — IF YOU SEE THIS, THIS FILE IS RUNNING
+      </div>
       {/* Filter bar */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, color: '#64748B', fontWeight: 500 }}>Sailing scenario:</span>
@@ -161,15 +218,15 @@ export default function CiiTab({ output }) {
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={baselineChartData} margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
               <CartesianGrid stroke="#F1F5F9" strokeOpacity={0.8} vertical={false} />
-              <XAxis dataKey="x" type="number" scale="linear" tickFormatter={v => {
-                    if (!Number.isFinite(v)) return '';
-                    const yr = Math.floor(v);
-                    const mo = Math.round((v - yr) * 12) + 1;
-                    return mo === 1 ? String(yr) : '';
-                  }}
-                  ticks={baselineChartData.map(r => r.x)}
-                  tick={{ fontSize: 10 }}
-                />
+              <XAxis
+                dataKey="x"
+                type="number"
+                scale="linear"
+                domain={rangeDomain}
+                tickFormatter={yearTickFormatter}
+                ticks={rangeTicks}
+                tick={{ fontSize: 10 }}
+              />
               <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10 }} />
               <Tooltip content={<CIITooltip />} />
               <Line dataKey="d1" stroke={GRADE_COLORS.A} strokeWidth={1} strokeDasharray="3 3" dot={false} name="D1 (A/B)" />
@@ -192,13 +249,13 @@ export default function CiiTab({ output }) {
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={sailingChartData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
                 <CartesianGrid stroke="#F1F5F9" vertical={false} />
-                <XAxis dataKey="x" type="number" scale="linear" tickFormatter={v => {
-                    if (!Number.isFinite(v)) return '';
-                    const yr = Math.floor(v);
-                    const mo = Math.round((v - yr) * 12) + 1;
-                    return mo === 1 ? String(yr) : '';
-                  }}
-                  ticks={sailingChartData.map(r => r.x)}
+                <XAxis
+                  dataKey="x"
+                  type="number"
+                  scale="linear"
+                  domain={rangeDomain}
+                  tickFormatter={yearTickFormatter}
+                  ticks={rangeTicks}
                   tick={{ fontSize: 10 }}
                 />
                 <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10 }} />
@@ -227,21 +284,9 @@ export default function CiiTab({ output }) {
                   dataKey="x"
                   type="number"
                   scale="linear"
-                  domain={esdLine.length ? [Math.floor(esdLine[0].x), Math.ceil(esdLine[esdLine.length-1].x) + 0.01] : ['auto','auto']}
-                  tickFormatter={v => {
-                    if (!Number.isFinite(v)) return '';
-                    const yr = Math.floor(v);
-                    const mo = Math.round((v - yr) * 12) + 1;
-                    return mo === 1 ? String(yr) : '';
-                  }}
-                  ticks={(() => {
-                    if (!esdLine.length) return [];
-                    const start = Math.floor(esdLine[0].x);
-                    const end = Math.ceil(esdLine[esdLine.length-1].x);
-                    const tks = [];
-                    for (let yr = start; yr <= end; yr++) tks.push(yr);
-                    return tks;
-                  })()}
+                  domain={rangeDomain}
+                  tickFormatter={yearTickFormatter}
+                  ticks={rangeTicks}
                   tick={{ fontSize: 10 }}
                 />
                 <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10 }} />
@@ -280,21 +325,9 @@ export default function CiiTab({ output }) {
                 dataKey="x"
                 type="number"
                 scale="linear"
-                domain={combChartData.length ? [Math.floor(combChartData[0].x), Math.ceil(combChartData[combChartData.length-1].x) + 0.01] : ['auto','auto']}
-                tickFormatter={v => {
-                  if (!Number.isFinite(v)) return '';
-                  const yr = Math.floor(v);
-                  const mo = Math.round((v - yr) * 12) + 1;
-                  return mo === 1 ? String(yr) : '';
-                }}
-                ticks={(() => {
-                  if (!combChartData.length) return [];
-                  const start = Math.floor(combChartData[0].x);
-                  const end = Math.ceil(combChartData[combChartData.length-1].x);
-                  const tks = [];
-                  for (let yr = start; yr <= end; yr++) tks.push(yr);
-                  return tks;
-                })()}
+                domain={rangeDomain}
+                tickFormatter={yearTickFormatter}
+                ticks={rangeTicks}
                 tick={{ fontSize: 10 }}
               />
               <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10 }} />

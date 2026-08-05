@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { simulationAPI } from '../services/apiService';
 import { generateReport } from '../utils/pdfExport';
-import { generateReport } from '../utils/pdfExport';
 
 // =====================================================================
 // HELPERS
@@ -543,6 +542,11 @@ function CiiTab({ out }) {
       const [yr,mo] = r.date.split('-').map(Number);
       return { x: yr + (mo-1)/12, y: r.required_cii };
     });
+    // One dot per year (January), not one per month — matches G2's look
+    const reqPointRadii = esdMonthly.map((r,i) => {
+      const mo = parseInt(r.date.split('-')[1], 10);
+      return (mo === 1 || i === 0) ? 3 : 0;
+    });
     // Mark months where new ESDs become active
     const esdInstallPts = esdMonthly
       .filter(r => r.newly_installed && r.newly_installed.length > 0)
@@ -551,23 +555,49 @@ function CiiTab({ out }) {
         return { x: yr + (mo-1)/12, y: r.attained_cii };
       });
 
-    const g3XMin = esdPts.length > 0 ? esdPts[0].x : labels[0];
-    const g3XMax = esdPts.length > 0 ? esdPts[esdPts.length-1].x : labels[labels.length-1];
+    // Shared x-range across EVERY series that can appear on g3/g4 — baseline
+    // years, ESD monthly points, AND every combined-scenario's monthly points
+    // (not just esdPts, and not just the currently-filtered scenario). This
+    // guarantees g3/g4 span at least as far as g1/g2 even if graph3_esd or
+    // graph4_combined weren't extrapolated as far forward on the backend.
+    const allCombinedXs = Object.values(combined).flatMap(arr =>
+      (arr || []).map(r => {
+        const [yr, mo] = r.date.split('-').map(Number);
+        return yr + (mo - 1) / 12;
+      })
+    );
+    const sharedXs = [
+      ...labels,
+      ...esdPts.map(p => p.x),
+      ...allCombinedXs,
+    ].filter(Number.isFinite);
+
+    const g3XMin = sharedXs.length > 0 ? Math.min(...sharedXs) : labels[0];
+    const g3XMax = sharedXs.length > 0 ? Math.max(...sharedXs) : labels[labels.length-1];
+
+    // Explicit integer-year ticks — don't rely on Chart.js's auto step-size
+    // picker, which can choose a non-integer step for a fractional range
+    // like 2026 → 2030.92 and silently skip the year-aligned tick.
+    const yearTicks = [];
+    for (let yr = Math.floor(g3XMin); yr <= Math.ceil(g3XMax); yr++) yearTicks.push(yr);
+    const forceYearTicks = axis => {
+      axis.ticks = yearTicks.map(yr => ({ value: yr }));
+    };
 
     buildChart('g3',{datasets:[
       {label:'Baseline (no ESDs)',data:basePts,borderColor:'#1A1A1A',borderDash:[6,4],borderWidth:1.5,pointRadius:0,fill:false,tension:0,parsing:false},
-      {label:'CII_R (Required)',data:reqPts,borderColor:'#D97706',borderDash:[8,4],borderWidth:1.5,pointRadius:3,pointBackgroundColor:'#D97706',fill:false,tension:0,stepped:'before',parsing:false},
+      {label:'CII_R (Required)',data:reqPts,borderColor:'#D97706',borderDash:[8,4],borderWidth:2.0,pointRadius:reqPointRadii,pointBackgroundColor:'#D97706',fill:false,tension:0,stepped:'before',parsing:false},
       {label:'With ESDs',data:esdPts,borderColor:'#2563EB',borderWidth:2.5,pointRadius:0,fill:false,tension:0,stepped:'before',parsing:false},
       {label:'ESD Installed',data:esdInstallPts,borderColor:'#065F46',borderDash:[8,4],borderWidth:1.5,pointRadius:3,pointBackgroundColor:'#065F46',fill:false,tension:0,stepped:'before',parsing:false},
     ]},{useGradeBands:true,yMin:yBounds.yMin,yMax:yBounds.yMax,
-      overrideX:{type:'linear',min:g3XMin,max:g3XMax,grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10,callback:v=>{const yr=Math.floor(v);const mo=Math.round((v-yr)*12)+1;return mo===1?yr:mo===7?'Jul':''}}}
+      overrideX:{type:'linear',min:g3XMin,max:g3XMax,grid:{display:false},afterBuildTicks:forceYearTicks,ticks:{font:{size:10},autoSkip:false,callback:v=>{const yr=Math.floor(v);const mo=Math.round((v-yr)*12)+1;return mo===1?yr:mo===7?'Jul':''}}}
     });
 
     // G4 — Combined (sailing + ESD) — MONTHLY to show ESD drop effect
     const combKeys2=sailFilter==='all'?Object.keys(combined):[sailFilter];
     const g4Ds=[
       {label:'Baseline (no ESDs)',data:basePts,borderColor:'#1A1A1A',borderDash:[6,4],borderWidth:1.5,pointRadius:0,fill:false,tension:0,parsing:false},
-      {label:'CII_R (Required)',data:reqPts,borderColor:'#D97706',borderDash:[8,4],borderWidth:1.5,pointRadius:3,pointBackgroundColor:'#D97706',fill:false,tension:0,stepped:'before',parsing:false},
+      {label:'CII_R (Required)',data:reqPts,borderColor:'#D97706',borderDash:[8,4],borderWidth:1.5,pointRadius:reqPointRadii,pointBackgroundColor:'#D97706',fill:false,tension:0,stepped:'before',parsing:false},
     ];
     combKeys2.forEach((k,ki)=>{
       const scData = (combined[k]||[]).map(r => {
@@ -577,7 +607,7 @@ function CiiTab({ out }) {
       g4Ds.push({label:k+' + ESDs',data:scData,borderColor:SAIL_COLORS[Object.keys(combined).indexOf(k)%SAIL_COLORS.length],borderWidth:1.5,pointRadius:0,fill:false,tension:0,stepped:'before',parsing:false});
     });
     buildChart('g4',{datasets:g4Ds},{useGradeBands:true,yMin:yBounds.yMin,yMax:yBounds.yMax,
-      overrideX:{type:'linear',min:g3XMin,max:g3XMax,grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10,callback:v=>{const yr=Math.floor(v);const mo=Math.round((v-yr)*12)+1;return mo===1?yr:mo===7?'Jul':''}}}
+      overrideX:{type:'linear',min:g3XMin,max:g3XMax,grid:{display:false},afterBuildTicks:forceYearTicks,ticks:{font:{size:10},autoSkip:false,callback:v=>{const yr=Math.floor(v);const mo=Math.round((v-yr)*12)+1;return mo===1?yr:mo===7?'Jul':''}}}
     });
   },[baseline,sailing,combined,esdData,sailFilter,buildChart,annualOf,sailKeys,esdTimeline]);
 
