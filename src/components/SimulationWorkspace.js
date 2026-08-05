@@ -1033,7 +1033,7 @@ function EuTaxTab({ out }) {
 // =====================================================================
 // MAIN WORKSPACE
 // =====================================================================
-export default function SimulationWorkspace({ vesselId, vesselName, sessionMode, initialReport, vesselReports, onBack }) {
+export default function SimulationWorkspace({ vesselId, vesselName, sessionMode, initialReport, vesselReports, isOnlyReport, onBack, isAdmin = false }) {  
   const [loading,    setLoading]    = useState(false);
   const [running,    setRunning]    = useState(false);
   const [pdfLoading, setPdfLoading]  = useState(false);
@@ -1120,7 +1120,7 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
 
         // "Latest" mode → show the report output immediately
         // "Base" mode → only load inputs, user clicks Run Simulation for new report
-        if (sessionMode === 'last' && initialReport.output) {
+        if ((sessionMode === 'last' || isOnlyReport) && initialReport.output) {
           setReportData(initialReport);
         }
 
@@ -1307,7 +1307,7 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
           </div>
 
           {/* ESD Measures */}
-          <div className="sim-sec" style={{flex:1}}>
+         <div className="sim-sec" style={{flex:1}}>
             <div className="sim-sec-title">
               ESD Measures
               <div style={{display:'flex',gap:4}}>
@@ -1324,8 +1324,8 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
                   <div style={{fontSize:9,color:'var(--ink3)',marginTop:1}}>
                     {e.installation_req==='docking'?'⚓ Docking':'⛵ In-Sailing'} · {e.lead_time_months}mo lead
                   </div>
-                  {e.selected&&(
-                    <div className="esd-ef">
+                  {isAdmin && e.selected && (
+                   <div className="esd-ef">
                       <div><label style={{fontSize:8,color:'var(--ink3)',display:'block',marginBottom:1}}>Eff %</label>
                         <input type="number" step="0.1" value={e.efficiency_gain_percent} onChange={ev=>updateEsd(i,'efficiency_gain_percent',ev.target.value)}/></div>
                       <div><label style={{fontSize:8,color:'var(--ink3)',display:'block',marginBottom:1}}>Cost $</label>

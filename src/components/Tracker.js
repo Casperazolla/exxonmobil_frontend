@@ -157,9 +157,9 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
 
   // Reports modal state
   const [reportsModalOpen, setReportsModalOpen] = useState(false);
-  const [reportsVessel,    setReportsVessel]    = useState(null);
-  const [reportsLoading,   setReportsLoading]   = useState(false);
-  const [reportsList,      setReportsList]      = useState([]);
+  const [reportsVessel, setReportsVessel] = useState(null);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportsList, setReportsList] = useState([]);
 
   const openReportsModal = async (vessel) => {
     setReportsVessel(vessel);
@@ -203,7 +203,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
 
   const [formData, setFormData] = useState(savedDraft?.formData || getDefaultFormData());
 
-  
+
   useEffect(() => {
     try {
       localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ formData, machines, selectedEsds }));
@@ -217,7 +217,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     setMachines(getDefaultMachines());
     setSelectedEsds([]);
     setEditingId(null);
-    try { localStorage.removeItem(DRAFT_STORAGE_KEY); } catch (e) {}
+    try { localStorage.removeItem(DRAFT_STORAGE_KEY); } catch (e) { }
   };
 
   const openOnboardModal = (vesselId = null) => {
@@ -228,7 +228,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         setEditingId(vesselId);
       }
     } else {
-     
+
       setEditingId(null);
     }
     setModalOpen(true);
@@ -597,13 +597,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     let reportToLoad = null;
 
     if (vesselReports.length > 0) {
-      if (sessionMode === 'base') {
-        // Base mode: use the FIRST report's input (the original base report)
-        reportToLoad = vesselReports[0];
-      } else {
-        // Latest mode: use the LAST report's input
-        reportToLoad = vesselReports[vesselReports.length - 1];
-      }
+      if (sessionMode === 'base' || vesselReports.length === 1) { reportToLoad = vesselReports[0]; } else { reportToLoad = vesselReports[vesselReports.length - 1]; }
 
       // If we have a report_id, fetch full report data
       if (reportToLoad?.report_id) {
@@ -782,7 +776,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
             <path d="M4 13 L6 17 L16 17 L18 13" stroke="white" stroke-width="1.2" fill="rgba(255,255,255,.15)" stroke-linejoin="round" />
             <ellipse cx="6" cy="15.5" rx="1.5" ry="1.5" fill="white" opacity=".6" />
           </svg> */}
-         <img src="/Swoosh.png" alt="Azolla Logo" style={{ width: 22, height: 22, marginBottom: 4 }} />
+          <img src="/Swoosh.png" alt="Azolla Logo" style={{ width: 22, height: 22, marginBottom: 4 }} />
           <span>AZOLLA ESD PLATFORM</span>
           <span className="nav-badge">Decarbonisation Suite</span>
         </a>
@@ -795,8 +789,8 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
           </button>
           <button
             className={`nav-tab ${activeTab === 'simulator' ? 'on' : ''}`}
-            onClick={() => { if(simulatingId) setActiveTab('simulator'); }}
-            style={activeTab==='simulator'?{background:'#1D9E75',color:'#fff',borderRadius:6,fontWeight:600}:{}}
+            onClick={() => { if (simulatingId) setActiveTab('simulator'); }}
+            style={activeTab === 'simulator' ? { background: '#1D9E75', color: '#fff', borderRadius: 6, fontWeight: 600 } : {}}
           >
             {getSimulatingVessel()?.vesselName || 'ESD Simulator'}
           </button>
@@ -816,6 +810,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
           vesselName={getSimulatingVessel()?.vesselName}
           sessionMode={sessionMode}
           initialReport={initialReport}
+          isOnlyReport={vesselReports.length === 1}
           vesselReports={vesselReports}
           onBack={() => setActiveTab('vessels')}
         />
@@ -823,155 +818,157 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
 
       {/* Main Content (vessels page only) */}
       {activeTab !== 'simulator' && (
-      <div className="container">
-        {/* ===== VESSELS PAGE ===== */}
-        {activeTab === 'vessels' && (
-          <div className="page-content">
-            <div className="sec-hd">
-              <div>
-                <div className="sec-title">Vessel Fleet</div>
-                <div className="sec-sub">Manage and track vessels onboarded to the platform</div>
+        <div className="container">
+          {/* ===== VESSELS PAGE ===== */}
+          {activeTab === 'vessels' && (
+            <div className="page-content">
+              <div className="sec-hd">
+                <div>
+                  <div className="sec-title">Vessel Fleet</div>
+                  <div className="sec-sub">Manage and track vessels onboarded to the platform</div>
+                </div>
+                {isAdmin && (
+                  <button className="btn btn-primary" onClick={() => openOnboardModal()}>
+                    + Onboard Vessel
+                  </button>
+                )}
               </div>
-              {isAdmin && (
-                <button className="btn btn-primary" onClick={() => openOnboardModal()}>
-                  + Onboard Vessel
-                </button>
-              )}
-            </div>
 
-            <div className="card">
-              <div className="card-hd">
-                <span className="card-title">Vessels ({vessels.length})</span>
-              </div>
-              <div className="card-body">
-                {vesselsLoading ? (
-                  <div className="empty-state">
-                    <div style={{ fontSize: '32px', marginBottom: '8px' }}>⏳</div>
-                    Loading vessels…
-                  </div>
-                ) : vesselsError ? (
-                  <div className="empty-state">
-                    <div style={{ fontSize: '32px', marginBottom: '8px' }}>⚠️</div>
-                    Couldn't load vessels: {vesselsError}
-                  </div>
-                ) : vessels.length === 0 ? (
-                  <div className="empty-state">
-                    <div style={{ fontSize: '32px', marginBottom: '8px' }}>🚢</div>
-                    No vessels onboarded yet
-                  </div>
-                ) : (
-                  <table className="vessel-table">
-                    <thead>
-                      <tr>
-                        <th>Vessel</th>
-                        <th>Type</th>
-                        <th>IMO</th>
-                        <th>DWT</th>
-                        <th>GT</th>
-                        <th>Build Year</th>
-                        <th>Sailing Days</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {vessels.map((vessel) => {
-                        const ageYrs = new Date().getFullYear() - vessel.buildYear;
-                        return (
-                          <tr key={vessel.id}>
-                            <td>
-                              <div className="vessel-row-name">{vessel.vesselName}</div>
-                              <div className="vessel-row-sub">
-                                {vessel.owner} · {vessel.flag} · Built {vessel.buildYear} ({ageYrs}yr)
-                              </div>
-                            </td>
-                            <td>
-                              <span className="badge badge-blue">{vessel.vesselType}</span>
-                            </td>
-                            <td className="mono">{vessel.imoNumber}</td>
-                            <td>{formatNumber(vessel.deadWeight)} t</td>
-                            <td>{formatNumber(vessel.grossTonnage)} t</td>
-                            <td>{vessel.buildYear} <span style={{fontSize:10,color:'#9CA3AF'}}>({ageYrs}yr)</span></td>
-                            <td>{vessel.sailingDays || '—'} days</td>
-                            <td>
-                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                                <button
-                                  className="btn btn-secondary btn-sm"
-                                  title="View all reports"
-                                  onClick={() => openReportsModal(vessel)}
-                                >
-                                  📋 Reports
-                                </button>
-                                <button
-                                  className="btn btn-primary btn-sm"
-                                  onClick={async () => {
-                                    await loadSimulationData(vessel.id);
-                                    openSimulator(vessel.id);
-                                  }}
-                                >
-                                  ⚙️ Simulate
-                                </button>
-                                {/* Edit commented out
+              <div className="card">
+                <div className="card-hd">
+                  <span className="card-title">Vessels ({vessels.length})</span>
+                </div>
+                <div className="card-body">
+                  {vesselsLoading ? (
+                    <div className="empty-state">
+                      <div style={{ fontSize: '32px', marginBottom: '8px' }}>⏳</div>
+                      Loading vessels…
+                    </div>
+                  ) : vesselsError ? (
+                    <div className="empty-state">
+                      <div style={{ fontSize: '32px', marginBottom: '8px' }}>⚠️</div>
+                      Couldn't load vessels: {vesselsError}
+                    </div>
+                  ) : vessels.length === 0 ? (
+                    <div className="empty-state">
+                      <div style={{ fontSize: '32px', marginBottom: '8px' }}>🚢</div>
+                      No vessels onboarded yet
+                    </div>
+                  ) : (
+                    <table className="vessel-table">
+                      <thead>
+                        <tr>
+                          <th>Vessel</th>
+                          <th>Type</th>
+                          <th>IMO</th>
+                          <th>DWT</th>
+                          <th>GT</th>
+                          <th>Build Year</th>
+                          <th>Sailing Days</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {vessels.map((vessel) => {
+                          const ageYrs = new Date().getFullYear() - vessel.buildYear;
+                          return (
+                            <tr key={vessel.id}>
+                              <td>
+                                <div className="vessel-row-name">{vessel.vesselName}</div>
+                                <div className="vessel-row-sub">
+                                  {vessel.owner} · {vessel.flag} · Built {vessel.buildYear} ({ageYrs}yr)
+                                </div>
+                              </td>
+                              <td>
+                                <span className="badge badge-blue">{vessel.vesselType}</span>
+                              </td>
+                              <td className="mono">{vessel.imoNumber}</td>
+                              <td>{formatNumber(vessel.deadWeight)} t</td>
+                              <td>{formatNumber(vessel.grossTonnage)} t</td>
+                              <td>{vessel.buildYear} <span style={{ fontSize: 10, color: '#9CA3AF' }}>({ageYrs}yr)</span></td>
+                              <td>{vessel.sailingDays || '—'} days</td>
+                              <td>
+                                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                  <button
+                                    className="btn btn-secondary btn-sm"
+                                    title="View all reports"
+                                    onClick={() => openReportsModal(vessel)}
+                                  >
+                                    📋 Reports
+                                  </button>
+                                  <button
+                                    className="btn btn-primary btn-sm"
+                                    onClick={async () => {
+                                      await loadSimulationData(vessel.id);
+                                      openSimulator(vessel.id);
+                                    }}
+                                  >
+                                    ⚙️ Simulate
+                                  </button>
+                                  {/* Edit commented out
                                 {isAdmin && (
                                   <button className="btn btn-secondary btn-sm"
                                     onClick={() => openOnboardModal(vessel.id)}>✏️ Edit</button>
                                 )} */}
-                                <button
-                                  className="btn btn-danger btn-sm"
-                                  title="Delete vessel"
-                                  onClick={() => deleteVessel(vessel.id)}
-                                >
-                                  🗑️
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
+                                  <button
+                                    className="btn btn-danger btn-sm"
+                                    title="Delete vessel"
+                                    onClick={() => deleteVessel(vessel.id)}
+                                  >
+                                    🗑️
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-      </div>
+        </div>
       )} {/* end container for non-simulator pages */}
 
       {/* ===== MODAL: Start Session ===== */}
       {sessionModalOpen && (
-        <div className="modal-overlay" onClick={()=>setSessionModalOpen(false)}>
-          <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:'min(480px, 90vw)',width:'100%',maxHeight:'90vh', minHeight:'45vh',overflowY:'auto',margin:'5vh auto'}}>
-            <div style={{padding:'clamp(14px, 3vw, 20px) clamp(16px, 3vw, 24px)'}}>
-              <div style={{fontSize:16,fontWeight:600,marginBottom:2}}>Start Simulation Session</div>
-              <div style={{fontSize:11,color:'var(--ink3)',marginBottom:14}}>
+        <div className="modal-overlay" onClick={() => setSessionModalOpen(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 'min(480px, 90vw)', width: '100%', maxHeight: '90vh', minHeight: '45vh', overflowY: 'auto', margin: '5vh auto' }}>
+            <div style={{ padding: 'clamp(14px, 3vw, 20px) clamp(16px, 3vw, 24px)' }}>
+              <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 2 }}>Start Simulation Session</div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 14 }}>
                 {getSimulatingVessel()?.vesselName || '—'} · IMO {getSimulatingVessel()?.imoNumber || '—'}
               </div>
 
               <div
-                onClick={()=>setSessionMode('base')}
-                style={{border:sessionMode==='base'?'2px solid #1D9E75':'1px solid var(--bd)',borderRadius:6,padding:'10px 12px',marginBottom:8,cursor:'pointer',background:sessionMode==='base'?'#FEFCE8':'#fff'}}
+                onClick={() => setSessionMode('base')}
+                style={{ border: sessionMode === 'base' ? '2px solid #1D9E75' : '1px solid var(--bd)', borderRadius: 6, padding: '10px 12px', marginBottom: 8, cursor: 'pointer', background: sessionMode === 'base' ? '#FEFCE8' : '#fff' }}
               >
-                <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                  <span style={{fontSize:16}}>📋</span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ fontSize: 16 }}>📋</span>
                   <div>
-                    <div style={{fontWeight:600,fontSize:12}}>Start from base report</div>
-                    <div style={{fontSize:10,color:'var(--ink3)',marginTop:1}}>Use original onboarding data. A <b>new report ID</b> is issued on first run.</div>
+                    <div style={{ fontWeight: 600, fontSize: 12 }}>Start from base report</div>
+                    <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 1 }}>Use original onboarding data. A <b>new report ID</b> is issued on first run.</div>
                   </div>
                 </div>
               </div>
 
               <div
-                onClick={()=>setSessionMode('last')}
-                style={{border:sessionMode==='last'?'2px solid #1D9E75':'1px solid var(--bd)',borderRadius:6,padding:'10px 12px',marginBottom:12,cursor:'pointer',background:sessionMode==='last'?'#FEFCE8':'#fff',opacity:vesselReports.length>0?1:0.5,pointerEvents:vesselReports.length>0?'auto':'none'}}
+                onClick={() => setSessionMode('last')}
+                style={{
+                  border: sessionMode === 'last' ? '2px solid #1D9E75' : '1px solid var(--bd)', borderRadius: 6, padding: '10px 12px', marginBottom: 12, cursor: 'pointer', background: sessionMode === 'last' ? '#FEFCE8' : '#fff', opacity: vesselReports.length > 1 ? 1 : 0.5, pointerEvents: vesselReports.length > 1 ? 'auto' : 'none'
+                }}
               >
-                <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                  <span style={{fontSize:16}}>🔄</span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ fontSize: 16 }}>🔄</span>
                   <div>
-                    <div style={{fontWeight:600,fontSize:12}}>Continue from last simulation</div>
-                    <div style={{fontSize:10,color:'var(--ink3)',marginTop:1}}>
+                    <div style={{ fontWeight: 600, fontSize: 12 }}>Continue from last simulation</div>
+                    <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 1 }}>
                       {vesselReports.length > 0 ? (
-                        <>Last report: <b style={{color:'#1D9E75',fontFamily:'monospace'}}>{vesselReports[vesselReports.length-1]?.report_id || '—'}</b>. All edits update this same ID.</>
+                        <>Last report: <b style={{ color: '#1D9E75', fontFamily: 'monospace' }}>{vesselReports[vesselReports.length - 1]?.report_id || '—'}</b>. All edits update this same ID.</>
                       ) : (
                         <>No previous reports found. Onboard the vessel first.</>
                       )}
@@ -980,15 +977,15 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                 </div>
               </div>
 
-              <div style={{background:'#FEF3C7',border:'1px solid #FDE68A',borderRadius:5,padding:'6px 10px',fontSize:9,color:'#92400E',marginBottom:8}}>
+              <div style={{ background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: 5, padding: '6px 10px', fontSize: 9, color: '#92400E', marginBottom: 8 }}>
                 <b>Session lock:</b> All edits update the <b>same report ID</b>. A new ID only generates when starting from base.
               </div>
-              <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:5,padding:'6px 10px',fontSize:9,color:'#1E40AF'}}>
+              <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 5, padding: '6px 10px', fontSize: 9, color: '#1E40AF' }}>
                 <b>Editable:</b> Sailing days · Non-sailing days · EUA cost · Fuel consumption &amp; prices · ESD selection
               </div>
 
-              <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:14}}>
-                <button className="btn btn-secondary" onClick={()=>setSessionModalOpen(false)}>Cancel</button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+                <button className="btn btn-secondary" onClick={() => setSessionModalOpen(false)}>Cancel</button>
                 <button className="btn btn-primary" onClick={confirmSession} disabled={sessionLoading}>
                   {sessionLoading ? '⏳ Loading…' : '▶ Start Session'}
                 </button>
@@ -1001,35 +998,35 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
       {/* ===== MODAL: Reports List ===== */}
       {reportsModalOpen && (
         <div className="modal-overlay" onClick={() => setReportsModalOpen(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth:780, width:'95%'}}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 780, width: '95%' }}>
             <div className="modal-hd">
               <div>
-                <div style={{fontWeight:600,fontSize:15}}>Reports — {reportsVessel?.vesselName}</div>
-                <div style={{fontSize:11,color:'var(--ink3)',marginTop:2}}>All simulation reports for this vessel</div>
+                <div style={{ fontWeight: 600, fontSize: 15 }}>Reports — {reportsVessel?.vesselName}</div>
+                <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>All simulation reports for this vessel</div>
               </div>
               <button className="modal-close" onClick={() => setReportsModalOpen(false)}>✕</button>
             </div>
-            <div className="modal-body" style={{padding:'12px 20px 20px',maxHeight:480,overflowY:'auto'}}>
+            <div className="modal-body" style={{ padding: '12px 20px 20px', maxHeight: 480, overflowY: 'auto' }}>
               {reportsLoading ? (
-                <div style={{textAlign:'center',padding:'32px',color:'var(--ink3)'}}>Loading reports…</div>
+                <div style={{ textAlign: 'center', padding: '32px', color: 'var(--ink3)' }}>Loading reports…</div>
               ) : reportsList.length === 0 ? (
-                <div style={{textAlign:'center',padding:'32px',color:'var(--ink3)'}}>No reports found</div>
+                <div style={{ textAlign: 'center', padding: '32px', color: 'var(--ink3)' }}>No reports found</div>
               ) : (
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
-                    <tr style={{borderBottom:'1px solid var(--border)'}}>
-                      <th style={{textAlign:'left',padding:'6px 8px',color:'var(--ink3)',fontWeight:500}}>Report ID</th>
-                      <th style={{textAlign:'left',padding:'6px 8px',color:'var(--ink3)',fontWeight:500}}>Created</th>
-                      <th style={{textAlign:'right',padding:'6px 8px',color:'var(--ink3)',fontWeight:500}}>Actions</th>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--ink3)', fontWeight: 500 }}>Report ID</th>
+                      <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--ink3)', fontWeight: 500 }}>Created</th>
+                      <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--ink3)', fontWeight: 500 }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {reportsList.map((report, idx) => (
-                      <tr key={report.report_id || idx} style={{borderBottom:'0.5px solid var(--border)'}}>
-                        <td style={{padding:'8px',fontFamily:'monospace',fontSize:11}}>{report.report_id || '—'}</td>
-                        <td style={{padding:'8px',color:'var(--ink3)'}}>{report.created_at ? new Date(report.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'}</td>
-                        <td style={{padding:'8px',textAlign:'right'}}>
-                          <div style={{display:'flex',gap:4,justifyContent:'flex-end'}}>
+                      <tr key={report.report_id || idx} style={{ borderBottom: '0.5px solid var(--border)' }}>
+                        <td style={{ padding: '8px', fontFamily: 'monospace', fontSize: 11 }}>{report.report_id || '—'}</td>
+                        <td style={{ padding: '8px', color: 'var(--ink3)' }}>{report.created_at ? new Date(report.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                        <td style={{ padding: '8px', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                             <button className="btn btn-secondary btn-sm" onClick={() => downloadReport(report)}>⬇ Download</button>
                             <button className="btn btn-primary btn-sm" onClick={() => simulateFromReport(report, reportsVessel)}>⚙️ Simulate</button>
                           </div>
@@ -1046,8 +1043,8 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
 
       {/* ===== MODAL: Onboard Vessel ===== */}
       {modalOpen && (
-        <div className="modal-overlay"  onClick={closeModal}>
-          <div className="modal" style={{height: "90vh"}} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal" style={{ height: "90vh" }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-hd">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <div style={{ fontSize: '14px', fontWeight: '600' }}>
@@ -1059,7 +1056,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
-                  style={{marginTop:4,alignSelf:'flex-start'}}
+                  style={{ marginTop: 4, alignSelf: 'flex-start' }}
                   title="Clear all entered vessel details, fuel particulars, and selected ESDs"
                   onClick={() => {
                     if (window.confirm('Reset the form? This clears all entered vessel details, fuel particulars, and selected ESDs.')) {
@@ -1369,7 +1366,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                       <div className="form-hint">First scheduled docking year</div>
                     </div>
                   </div>
-                  <div className="form-grid form-grid-2" style={{marginTop:8}}>
+                  <div className="form-grid form-grid-2" style={{ marginTop: 8 }}>
                     <div className="form-group">
                       <label className="form-label">Common ESD Impl. Month</label>
                       <input type="number" name="commonImplMonth" value={formData.commonImplMonth} onChange={handleFormChange} placeholder="1–12" className="form-input" min="1" max="12" />
@@ -1386,7 +1383,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
               {/* CII Correction Factors */}
               <div className="onboard-card">
                 <div className="form-section">
-                  <div className="form-section-title">📐 CII Correction Factors <span style={{fontSize:10,fontWeight:400,color:'#9CA3AF'}}>(leave at 1.0 for standard vessels)</span></div>
+                  <div className="form-section-title">📐 CII Correction Factors <span style={{ fontSize: 10, fontWeight: 400, color: '#9CA3AF' }}>(leave at 1.0 for standard vessels)</span></div>
                   <div className="form-grid form-grid-4">
                     <div className="form-group">
                       <label className="form-label">f_i (Capacity)</label>
@@ -1701,11 +1698,11 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                               <input
                                 value={selectedEsds.find(esd => esd.id === item.id)?.efficiency_gain_percent || ""}
                                 readOnly={!isAdmin}
-                                style={!isAdmin ? {background:'var(--surface-1)',color:'var(--ink3)',cursor:'not-allowed'} : {}}
+                                style={!isAdmin ? { background: 'var(--surface-1)', color: 'var(--ink3)', cursor: 'not-allowed' } : {}}
                                 onChange={(e) => {
                                   if (!isAdmin) return;
                                   setSelectedEsds(prev => prev.map(esd =>
-                                    esd.id === item.id ? {...esd, efficiency_gain_percent: e.target.value} : esd
+                                    esd.id === item.id ? { ...esd, efficiency_gain_percent: e.target.value } : esd
                                   ));
                                 }}
                               />
@@ -1716,11 +1713,11 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                               <input
                                 value={selectedEsds.find(esd => esd.id === item.id)?.cost_usd || ""}
                                 readOnly={!isAdmin}
-                                style={!isAdmin ? {background:'var(--surface-1)',color:'var(--ink3)',cursor:'not-allowed'} : {}}
+                                style={!isAdmin ? { background: 'var(--surface-1)', color: 'var(--ink3)', cursor: 'not-allowed' } : {}}
                                 onChange={(e) => {
                                   if (!isAdmin) return;
                                   setSelectedEsds(prev => prev.map(esd =>
-                                    esd.id === item.id ? {...esd, cost_usd: e.target.value} : esd
+                                    esd.id === item.id ? { ...esd, cost_usd: e.target.value } : esd
                                   ));
                                 }}
                               />
@@ -1732,11 +1729,11 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                                 type="number" min="1" max="24"
                                 value={selectedEsds.find(esd => esd.id === item.id)?.lead_time_months || ""}
                                 readOnly={!isAdmin}
-                                style={!isAdmin ? {background:'var(--surface-1)',color:'var(--ink3)',cursor:'not-allowed'} : {}}
+                                style={!isAdmin ? { background: 'var(--surface-1)', color: 'var(--ink3)', cursor: 'not-allowed' } : {}}
                                 onChange={(e) => {
                                   if (!isAdmin) return;
                                   setSelectedEsds(prev => prev.map(esd =>
-                                    esd.id === item.id ? {...esd, lead_time_months: e.target.value} : esd
+                                    esd.id === item.id ? { ...esd, lead_time_months: e.target.value } : esd
                                   ));
                                 }}
                               />
@@ -1747,11 +1744,11 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                               <select
                                 value={selectedEsds.find(esd => esd.id === item.id)?.installation_req || "in_sailing"}
                                 disabled={!isAdmin}
-                                style={{padding:'6px 8px',border:'1px solid var(--border)',borderRadius:4,fontSize:12,width:'100%',...(!isAdmin?{background:'var(--surface-1)',color:'var(--ink3)',cursor:'not-allowed'}:{})}}
+                                style={{ padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12, width: '100%', ...(!isAdmin ? { background: 'var(--surface-1)', color: 'var(--ink3)', cursor: 'not-allowed' } : {}) }}
                                 onChange={(e) => {
                                   if (!isAdmin) return;
                                   setSelectedEsds(prev => prev.map(esd =>
-                                    esd.id === item.id ? {...esd, installation_req: e.target.value} : esd
+                                    esd.id === item.id ? { ...esd, installation_req: e.target.value } : esd
                                   ));
                                 }}
                               >
