@@ -126,7 +126,7 @@ function EsdTab({ out }) {
                 <td><b>{e.tech_name}</b></td>
                 <td><span className={`bx ${CAT_CLASS[e.category]||'bx-gray'}`}>{e.category}</span></td>
                 <td><span className={`bx ${e.installation_req==='docking'?'bx-a':'bx-gray'}`}>{e.installation_req?.replace('_','-')}</span></td>
-                <td className="r" style={{fontSize:10,color:'var(--ink3)'}}>{e.applicability?.lead_time_months || '—'}mo</td>
+                <td className="r" style={{fontSize:10,color:'var(--ink3)'}}>{e.lead_time_months || '—'}mo</td>
                 <td className="r">{fmt$(e.cost_usd)}</td>
                 <td className="r">{e.calculated_saving_pct?.toFixed(2)}%</td>
                 <td>

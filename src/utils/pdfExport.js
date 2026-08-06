@@ -239,7 +239,7 @@ export async function generateReport(opts) {
   const eR = esdR.map((e,i)=>[
     i+1, e.tech_name,
     e.installation_req?.replace('_','-')||'—',
-    (e.applicability?.lead_time_months||'—')+'mo',
+    (e.lead_time_months||'—')+'mo',
     (e.calculated_saving_pct?.toFixed(2)||'—')+'%',
     fmt$(e.cost_usd),
     fmt$(e.total_annual_savings_usd),
