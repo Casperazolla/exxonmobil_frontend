@@ -38,6 +38,18 @@ const fmt$ = n => {
 };
 const fmtN = (n, d = 0) => n != null ? Number(n).toLocaleString(undefined, { maximumFractionDigits: d }) : '—';
 
+// ── ESD technology display-name overrides ──────────────────────────────
+// Add an entry here for any tech_name coming back from the API that
+// should be shown under a different label in the PDF. Left side = the
+// exact string currently in the data, right side = what to print instead.
+// TODO: fill in the exact source names to replace with these two —
+// left them as placeholders since the current values weren't specified.
+const TECH_NAME_OVERRIDES = {
+  'REPLACE_WITH_CURRENT_NAME_1': 'Post-Swirl Device (PBCF)',
+  'REPLACE_WITH_CURRENT_NAME_2': 'Organic Rankine Cycle (E power pack)',
+};
+const displayTechName = (name) => TECH_NAME_OVERRIDES[name] || name;
+
 function capChart(id) {
   try {
     const el = document.getElementById(id);
@@ -129,65 +141,69 @@ function pageHeader(p, name, imo, pg, total) {
 }
 
 // ── Section title ────────────────────────────────────────────────────────
-function secTitle(p, text, y, color = C.navy) {
+function secTitle(p, text, y, color = C.navy, x = M) {
   // Left accent bar
   p.setFillColor(color);
-  p.rect(M, y - 4.5, 2.5, 8, 'F');
+  p.rect(x, y - 4.5, 2.5, 8, 'F');
   // Title text
   p.setFontSize(10.5); p.setFont('helvetica', 'bold'); p.setTextColor(color);
-  p.text(text.toUpperCase(), M + 5, y);
-  return y + 8;
+  p.text(text.toUpperCase(), x + 5, y);
+  return y + 11;
 }
 
 // ── KPI card row ─────────────────────────────────────────────────────────
-function kpiRow(p, items, y) {
-  const gap = 4;
-  const w   = (CW - gap * (items.length - 1)) / items.length;
+function kpiRow(p, items, y, x0 = M, width = CW) {
+  const gap  = 5;
+  const cardH = 21;
+  const w    = (width - gap * (items.length - 1)) / items.length;
   items.forEach((k, i) => {
-    const x = M + i * (w + gap);
+    const x = x0 + i * (w + gap);
     // Card background
     p.setFillColor(C.light); p.setDrawColor(C.border); p.setLineWidth(0.3);
-    p.roundedRect(x, y, w, 18, 2, 2, 'FD');
+    p.roundedRect(x, y, w, cardH, 2, 2, 'FD');
     // Left accent
     p.setFillColor(k.accent || C.navy);
-    p.roundedRect(x, y, 1, 18, 0.5, 0.5, 'F');
+    p.roundedRect(x, y, 1, cardH, 0.5, 0.5, 'F');
     // Label
     p.setFontSize(7); p.setFont('helvetica', 'normal'); p.setTextColor(C.slate);
-    p.text(k.label, x + 6, y + 5.5);
+    p.text(k.label, x + 6, y + 6.5);
     // Value
     p.setFontSize(13); p.setFont('helvetica', 'bold'); p.setTextColor(k.color || C.black);
-    p.text(String(k.value || '—'), x + 6, y + 14);
+    p.text(String(k.value || '—'), x + 6, y + 15.5);
     // Sub-label
     if (k.sub) {
       p.setFontSize(6.5); p.setFont('helvetica', 'normal'); p.setTextColor(C.muted);
-      p.text(k.sub, x + w - 4, y + 14, { align: 'right' });
+      p.text(k.sub, x + w - 4, y + 15.5, { align: 'right' });
     }
   });
-  return y + 22;
+  return y + cardH + 7;
 }
 
 // ── Professional table ───────────────────────────────────────────────────
 function table(p, heads, rows, y, ws, opts = {}) {
   if (y > PH - 25) return y;
-  const { rowH = 5.5, fontSize = 7, zebra = true, headerBg = C.navy } = opts;
+  const {
+    rowH = 7, fontSize = 7, zebra = true, headerBg = C.navy,
+    x: X = M, width: W = CW,
+  } = opts;
 
-  // Scale column widths to fit CW
+  // Scale column widths to fit the table's own width (defaults to full CW)
   const totalW = ws.reduce((s, w) => s + w, 0);
-  const cw = ws.map(w => (w / totalW) * CW);
+  const cw = ws.map(w => (w / totalW) * W);
 
   // Header row
   p.setFillColor(headerBg);
-  p.rect(M, y, CW, 7.5, 'F');
+  p.rect(X, y, W, 9, 'F');
   p.setFontSize(fontSize - 0.5); p.setFont('helvetica', 'bold');
   p.setTextColor(C.white);
-  let x = M + 2;
+  let x = X + 2;
   heads.forEach((h, i) => {
     const align = i === 0 ? 'left' : 'right';
     const tx    = align === 'right' ? x + cw[i] - 2 : x;
-    p.text(String(h), tx, y + 5, { align });
+    p.text(String(h), tx, y + 6, { align });
     x += cw[i];
   });
-  y += 7.5;
+  y += 9;
 
   // Body rows
   p.setFont('helvetica', 'normal'); p.setFontSize(fontSize);
@@ -196,27 +212,27 @@ function table(p, heads, rows, y, ws, opts = {}) {
     // Zebra stripe
     if (zebra && ri % 2 === 1) {
       p.setFillColor('#F1F5F9');
-      p.rect(M, y, CW, rowH, 'F');
+      p.rect(X, y, W, rowH, 'F');
     }
     p.setTextColor(C.black);
-    x = M + 2;
+    x = X + 2;
     row.forEach((cell, ci) => {
       const align = ci === 0 ? 'left' : 'right';
       const tx    = align === 'right' ? x + cw[ci] - 2 : x;
       const val   = String(cell ?? '—');
       p.setTextColor(C.black);
-      p.text(val, tx, y + rowH - 1.5, { align });
+      p.text(val, tx, y + rowH - 1.7, { align });
       x += cw[ci];
     });
     y += rowH;
     // Row divider
     p.setDrawColor('#E2E8F0'); p.setLineWidth(0.1);
-    p.line(M, y, PW - M, y);
+    p.line(X, y, X + W, y);
   });
   // Bottom border
   p.setDrawColor(C.border); p.setLineWidth(0.3);
-  p.line(M, y, PW - M, y);
-  return y + 3;
+  p.line(X, y, X + W, y);
+  return y + 6;
 }
 
 // ── Info row (label · value) ─────────────────────────────────────────────
@@ -390,10 +406,8 @@ export async function generateReport(opts) {
   }
   p.setFontSize(6.5); p.setFont('helvetica', 'normal'); p.setTextColor('#94A3B8');
   p.text('This report is prepared by Azolla, ' + now.split(' ').slice(-2).join(' '), tX, PH - 6);
-
-  // ── Page number ──
-  p.setFontSize(6.5); p.setTextColor('#94A3B8');
-  p.text('1 | Page', PW - M, PH - 6, { align: 'right' });
+  // Page number for the cover is stamped later by the unified footer loop,
+  // so every page (including this one) shares the same "X / Y" style.
 
   // ═══ PAGE 2 — VESSEL + FUEL ═══════════════════════════════════════════
   p.addPage(); 
@@ -407,27 +421,34 @@ export async function generateReport(opts) {
     ['Vessel type',        v.vessel_type || '—',                      'Flag',             v.flag || '—'],
     ['Built',              String(v.build_year || '—'),                'Classification',   v.classification_society || '—'],
     ['DWT',                fmtN(v.dead_weight) + ' MT',               'Gross tonnage',    fmtN(v.gross_tonnage) + ' GT'],
-    ['Sailing days',       vm.sailing_days_per_year + '/yr',          'Non-sailing days', vm.non_steaming_days_per_year + '/yr'],
-    ['Distance',           fmtN(vm.distance_nm) + ' nm/yr',          'EU voyage share',  vm.eu_voyages_percent + '%'],
-    ['EUA cost',           String(vm.eua_cost_usd) + ' USD/tCO2',    'Discount rate',    ((input?.discount_rate||0.1)*100) + '%'],
+    ['Sailing days',       vm.sailing_days_per_year + ' /YR',         'Non-sailing days', vm.non_steaming_days_per_year + ' /YR'],
+    ['Distance',           fmtN(vm.distance_nm) + ' NM/YR',          'EU voyage share',  vm.eu_voyages_percent + '%'],
+    ['EUA cost',           String(vm.eua_cost_usd) + ' USD/TCO2',    'Discount rate',    ((input?.discount_rate||0.1)*100) + '%'],
     ['Analysis start',     vm.analysis_month + '/' + vm.analysis_year,'Docking month',    String(vm.docking_month || '—')],
   ];
   const hw = CW / 2;
   vesselInfo.forEach((row, ri) => {
     const bg = ri % 2 === 1 ? '#F8FAFC' : '#FFFFFF';
-    p.setFillColor(bg); p.rect(M, y, CW, 6.5, 'F');
+    p.setFillColor(bg); p.rect(M, y, CW, 7.2, 'F');
     p.setFontSize(7.5); p.setFont('helvetica', 'normal');
-    p.setTextColor(C.slate); p.text(row[0], M + 2, y + 4.5);
-    p.setTextColor(C.black); p.text(String(row[1]), M + 36, y + 4.5);
-    p.setTextColor(C.slate); p.text(row[2], M + hw + 2, y + 4.5);
-    p.setTextColor(C.black); p.text(String(row[3]), M + hw + 36, y + 4.5);
-    y += 6.5;
+    p.setTextColor(C.slate); p.text(row[0], M + 2, y + 4.8);
+    p.setTextColor(C.black); p.text(String(row[1]), M + 36, y + 4.8);
+    p.setTextColor(C.slate); p.text(row[2], M + hw + 2, y + 4.8);
+    p.setTextColor(C.black); p.text(String(row[3]), M + hw + 36, y + 4.8);
+    y += 11.2;
   });
   // Divider
   p.setDrawColor(C.border); p.setLineWidth(0.2); p.line(M, y, PW-M, y);
-  y += 8;
+  y += 12;
 
-  y = secTitle(p, 'Fuel Consumption', y);
+   y = kpiRow(p, [
+    { label: 'Total fuel consumption', value: fmtN(totC, 0) + ' MT /YR', color: C.black, accent: C.navy },
+    { label: 'Total fuel cost',        value: fmt$(totCost) + ' /YR',      color: C.amber, accent: C.amber },
+    { label: 'EU compliance cost',     value: fmt$(pen.total_eu_compliance_cost_usd) + ' /YR', color: C.red, accent: C.red },
+    { label: 'Machines',               value: String(mch.length),           color: C.black, accent: C.slate },
+  ], y);
+
+  y = secTitle(p, 'Fuel Consumption', y += 10);
   const fuelRows = mch.flatMap(m => m.fuel_particulars.map(fp => [
     m.machine_name, fp.fuel_name,
     fmtN(fp.consumption_mt, 2),
@@ -435,23 +456,18 @@ export async function generateReport(opts) {
     fmt$(fp.consumption_mt * fp.fuel_price_usd_per_mt)
   ]));
   fuelRows.push(['TOTAL', '', fmtN(totC, 2), '', fmt$(totCost)]);
-  y = table(p, ['Machine', 'Fuel', 'MT / yr', 'Price (USD/MT)', 'Annual cost'], fuelRows, y, [40, 20, 22, 24, 26]);
-  y += 6;
+  y = table(p, ['Machine', 'Fuel', 'MT / YR', 'Price (USD/MT)', 'Annual cost'], fuelRows, y, [40, 20, 22, 24, 26]);
+  y += 10;
 
   // Quick-read KPI cards — placed BELOW fuel consumption, at the end of the page
-  y = kpiRow(p, [
-    { label: 'Total fuel consumption', value: fmtN(totC, 0) + ' MT/yr',  color: C.black, accent: C.navy },
-    { label: 'Total fuel cost',        value: fmt$(totCost) + '/yr',       color: C.amber, accent: C.amber },
-    { label: 'EU compliance cost',     value: fmt$(pen.total_eu_compliance_cost_usd) + '/yr', color: C.red, accent: C.red },
-    { label: 'Machines',               value: String(mch.length),           color: C.black, accent: C.slate },
-  ], y);
+ 
 
   // ═══ PAGE 3 — ESD PERFORMANCE ═════════════════════════════════════════
   // This page only: content starts from the extreme left (small margin)
   // instead of the standard M — every other page keeps the normal margin.
   p.addPage();
   y = 10;
-  const P3X = 4;                 // extreme-left margin, page 3 only
+  const P3X = 2;                  // extreme-left margin, page 3 only (near page edge)
   const P3W = PW - P3X - M;      // keep the normal right margin
 
   y = secTitle(p, 'ESD Performance Summary', y, C.navy, P3X);
@@ -463,20 +479,20 @@ export async function generateReport(opts) {
   ], y, P3X, P3W);
 
   const eRows = esdR.map((e, i) => [
-    i + 1, e.tech_name,
+    i + 1, displayTechName(e.tech_name),
     e.installation_req?.replace('_', '-') || '—',
-    (e.lead_time_months || '—') + ' mo',
+    (e.lead_time_months || '—') + ' MO',
     (e.calculated_saving_pct?.toFixed(2) || '—') + '%',
     fmt$(e.cost_usd),
     fmt$(e.total_annual_savings_usd),
-    e.payback_with_ets_years ? e.payback_with_ets_years.toFixed(1) + ' yr' : '—',
+    e.payback_with_ets_years ? e.payback_with_ets_years.toFixed(1) + ' YR' : '—',
   ]);
-  y = table(p, ['#', 'ESD Technology', 'Install', 'Lead', 'Eff%', 'Cost', 'Savings/yr', 'Payback'],
+  y = table(p, ['#', 'ESD Technology', 'Install', 'Lead', 'Eff%', 'Cost', 'Savings /YR', 'Payback'],
     eRows, y, [6, 46, 15, 12, 12, 22, 22, 15], { x: P3X, width: P3W });
 
   if (tl.length && y < PH - 50) {
-    y += 5; y = secTitle(p, 'Implementation Timeline', y, C.navy, P3X);
-    const tlRows = tl.map(t => [t.implementation_label, t.name, t.installation_req?.replace('_', '-'), '+' + t.saving_pct + '%']);
+    y += 10; y = secTitle(p, 'Implementation Timeline', y, C.navy, P3X);
+    const tlRows = tl.map(t => [t.implementation_label, displayTechName(t.name), t.installation_req?.replace('_', '-'), '+' + t.saving_pct + '%']);
     y = table(p, ['Date', 'ESD', 'Type', 'Saving%'], tlRows, y, [22, 68, 20, 14], { x: P3X, width: P3W });
   }
 
@@ -497,8 +513,8 @@ export async function generateReport(opts) {
     const pbCurrent = pbSens.overall_current_payback;
 
     if (pbPrices.length && esdSens.length && y < PH - 50) {
-      y += 7;
-      y = secTitle(p, 'Payback Period - Fuel Price Sensitivity (yrs)', y, C.navy, P3X);
+      y += 10;
+      y = secTitle(p, 'Payback Period - Fuel Price Sensitivity (yrs)', y += 10, C.navy, P3X);
 
       // Find the index of current price in the price list to mark it
       const currPrice = activeFuel ? (pbSens.current_fuel_prices?.[activeFuel] || null) : null;
@@ -512,7 +528,7 @@ export async function generateReport(opts) {
       // Build ESD rows
       const sensRows = esdSens.map((e, i) => [
         i + 1,
-        e.tech_name || '?',
+        displayTechName(e.tech_name) || '?',
         ...( e.payback_by_case || [] ).map(pb => pb != null ? Number(pb).toFixed(1) : '-'),
         e.current_payback_with_eu != null ? Number(e.current_payback_with_eu).toFixed(1) : '-',
       ]);
@@ -533,7 +549,7 @@ export async function generateReport(opts) {
       const colW  = Math.max(7, Math.floor((P3W - 6 - nameW) / numCols));
       const sensWidths = [6, nameW, ...Array(numCols).fill(colW)];
 
-      y = table(p, sensHeaders, sensRows, y, sensWidths, { fontSize: 5.5, rowH: 4.5, x: P3X, width: P3W });
+      y = table(p, sensHeaders, sensRows, y += 10, sensWidths, { fontSize: 5.5, rowH: 5, x: P3X, width: P3W });
     }
   }
 
@@ -585,15 +601,15 @@ export async function generateReport(opts) {
 
 
 
-  // ═══ PAGE 6 — EU COMPLIANCE ═══════════════════════════════════════════
+  // ═══ PAGE 5 — EU COMPLIANCE ═══════════════════════════════════════════
   p.addPage();
   y = 10;
   y = secTitle(p, 'EU Compliance — EUA + FuelEU', y);
 
   y = kpiRow(p, [
-    { label: 'Total EU compliance', value: fmt$(pen.total_eu_compliance_cost_usd) + '/yr', color: C.red,   accent: C.red },
-    { label: 'EUA cost',            value: fmt$(eua.total_eua_cost_usd) + '/yr',           color: C.amber, accent: C.amber },
-    { label: 'FuelEU penalty',      value: fmt$(feu.penalty_usd) + '/yr',                  color: feu.compliant ? C.green : C.red, accent: C.navy },
+    { label: 'Total EU compliance', value: fmt$(pen.total_eu_compliance_cost_usd) + ' /YR', color: C.red,   accent: C.red },
+    { label: 'EUA cost',            value: fmt$(eua.total_eua_cost_usd) + ' /YR',           color: C.amber, accent: C.amber },
+    { label: 'FuelEU penalty',      value: fmt$(feu.penalty_usd) + ' /YR',                  color: feu.compliant ? C.green : C.red, accent: C.navy },
   ], y);
 
   // GHG intensity as clean table
@@ -606,20 +622,20 @@ export async function generateReport(opts) {
     ],
     y, [55, 40, 40, 37]
   );
-  y += 6;
+  y += 11;
 
   y = secTitle(p, 'Year-by-Year Projection', y);
   const yrRows = yearly.map(r => [
-    r.year, r.active_months + 'mo',
+    r.year, r.active_months + ' MO',
     r.target?.toFixed(2), r.vessel_ghg?.toFixed(4),
     r.vessel_excess > 0 ? '+' + r.vessel_excess?.toFixed(4) : '0',
     fmt$(r.vessel_fueleu_penalty_usd), fmt$(r.vessel_eua_cost_usd),
     fmt$(r.esd_fuel_savings_usd), fmt$(r.esd_eua_savings_usd), fmt$(r.esd_fueleu_savings_usd),
   ]);
-  y = table(p, ['Year', 'Mo', 'Target', 'GHG', 'Excess', 'FuelEU', 'EUA', 'ESD Fuel', 'ESD EUA', 'ESD FEU'],
-    yrRows, y, [12, 10, 16, 18, 16, 20, 20, 20, 18, 18], { fontSize: 6.5, rowH: 5 });
+  y = table(p, ['Year', 'MO', 'Target', 'GHG', 'Excess', 'FuelEU', 'EUA', 'ESD Fuel', 'ESD EUA', 'ESD FEU'],
+    yrRows, y, [12, 10, 16, 18, 16, 20, 20, 20, 18, 18], { fontSize: 6.5, rowH: 5.5 });
 
-  // ═══ PAGE 7 — FINANCIALS ══════════════════════════════════════════════
+  // ═══ PAGE 6 — FINANCIALS ══════════════════════════════════════════════
   p.addPage();
   y = 10;
   y = secTitle(p, 'Financial Analysis', y);
@@ -627,14 +643,14 @@ export async function generateReport(opts) {
   y = kpiRow(p, [
     { label: 'NPV',         value: fmt$(fSum.npv_usd),          color: fSum.npv_usd >= 0 ? C.green : C.red, accent: fSum.npv_usd >= 0 ? C.green : C.red },
     { label: 'Savings PV',  value: fmt$(fSum.savings_pv_usd),   color: C.blue,  accent: C.blue },
-    { label: 'Payback',     value: fSum.payback_years ? fSum.payback_years.toFixed(1) + ' yrs' : '—', color: C.black, accent: C.navy },
+    { label: 'Payback',     value: fSum.payback_years ? fSum.payback_years.toFixed(1) + ' YRS' : '—', color: C.black, accent: C.navy },
   ], y);
   y = kpiRow(p, [
     { label: 'IRR',         value: fSum.irr_pct ? fSum.irr_pct.toFixed(1) + '%' : '—',   color: C.blue,  accent: C.blue },
     { label: 'Investment',  value: fmt$(fSum.total_investment_usd),                         color: C.red,   accent: C.red },
     { label: 'Accum. savings', value: fmt$(fSum.accumulated_savings_usd),                  color: C.green, accent: C.green },
-  ], y - 4);
-  y += 5;
+  ], y - 3);
+  y += 8;
 
   // Financial charts — larger now that header is removed, more breathing room
   const fH = 58;
@@ -655,10 +671,10 @@ export async function generateReport(opts) {
   }
 
   // ── Page numbers ─────────────────────────────────────────────────────
-  // Stamped last, over every physical page, so the count is always
-  // correct (cover page is left unlabeled, matching the rest of the report).
+  // Stamped last, over every physical page (including the cover), so the
+  // count and style are always correct and consistent across all pages.
   const totalPages = p.internal.getNumberOfPages();
-  for (let i = 2; i <= totalPages; i++) {
+  for (let i = 1; i <= totalPages; i++) {
     p.setPage(i);
     p.setFontSize(7); p.setFont('helvetica', 'normal'); p.setTextColor(C.muted);
     p.text(`${i} / ${totalPages}`, PW - M, PH - 5, { align: 'right' });

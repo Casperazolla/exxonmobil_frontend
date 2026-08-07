@@ -110,8 +110,8 @@ function EsdTab({ out }) {
     <div className="rwrap">
       <div className="g4" style={{marginBottom:14}}>
         <div className="kpi"><div className="kpi-l">Investment</div><div className="kpi-v">{fmt$(sum.total_cost_usd)}</div></div>
-        <div className="kpi"><div className="kpi-l">Fuel Savings</div><div className="kpi-v g">{fmtN(sum.total_fuel_savings_mt_all,0)} MT</div><div className="kpi-s">/ year</div></div>
-        <div className="kpi"><div className="kpi-l">CO₂ Reduction</div><div className="kpi-v g">{fmtN(sum.total_co2_reduction_mt,0)} t</div><div className="kpi-s">/ year</div></div>
+        <div className="kpi"><div className="kpi-l">Fuel Savings</div><div className="kpi-v g">{fmtN(sum.total_fuel_savings_mt_all,0)}  MT</div><div className="kpi-s">/ year</div></div>
+        <div className="kpi"><div className="kpi-l">CO₂ Reduction</div><div className="kpi-v g">{fmtN(sum.total_co2_reduction_mt,0)}  T</div><div className="kpi-s">/ year</div></div>
         <div className="kpi"><div className="kpi-l">Annual Savings</div><div className="kpi-v g">{fmt$(esdTotal)}</div><div className="kpi-s">fuel+EUA+FuelEU</div></div>
       </div>
       <div className="card" style={{marginBottom:14}}>
