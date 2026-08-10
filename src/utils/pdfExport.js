@@ -10,6 +10,11 @@
 
 // ── Page dimensions ──────────────────────────────────────────────────────
 const PW = 210, PH = 297, M = 14, CW = PW - M * 2;
+// Reserved whitespace at the bottom of every page, above the footer/page
+// number. Nothing — table rows, charts, sections — should ever be drawn
+// below (PH - BM). Change this one value to retune spacing everywhere.
+const BM = 20;
+const CONTENT_BOTTOM = PH - BM;
 
 // ── Colour palette ───────────────────────────────────────────────────────
 const C = {
@@ -181,11 +186,14 @@ function kpiRow(p, items, y, x0 = M, width = CW) {
 
 // ── Professional table ───────────────────────────────────────────────────
 function table(p, heads, rows, y, ws, opts = {}) {
-  if (y > PH - 25) return y;
   const {
     rowH = 7, fontSize = 7, zebra = true, headerBg = C.navy,
     x: X = M, width: W = CW,
   } = opts;
+  // Need room for the header (9mm) plus at least one data row before it's
+  // worth starting the table at all — otherwise skip it entirely so it
+  // doesn't get stranded as a lone header at the bottom of the page.
+  if (y > CONTENT_BOTTOM - (9 + rowH)) return y;
 
   // Scale column widths to fit the table's own width (defaults to full CW)
   const totalW = ws.reduce((s, w) => s + w, 0);
@@ -196,7 +204,7 @@ function table(p, heads, rows, y, ws, opts = {}) {
   p.rect(X, y, W, 9, 'F');
   p.setFontSize(fontSize - 0.5); p.setFont('helvetica', 'bold');
   p.setTextColor(C.white);
-  let x = X + 2;
+  let x = X + 0.5;
   heads.forEach((h, i) => {
     const align = i === 0 ? 'left' : 'right';
     const tx = align === 'right' ? x + cw[i] - 2 : x;
@@ -208,14 +216,14 @@ function table(p, heads, rows, y, ws, opts = {}) {
   // Body rows
   p.setFont('helvetica', 'normal'); p.setFontSize(fontSize);
   rows.forEach((row, ri) => {
-    if (y > PH - 18) return;
+    if (y + rowH > CONTENT_BOTTOM) return;
     // Zebra stripe
     if (zebra && ri % 2 === 1) {
       p.setFillColor('#F1F5F9');
       p.rect(X, y, W, rowH, 'F');
     }
     p.setTextColor(C.black);
-    x = X + 2;
+    x = X + 0.5;
     row.forEach((cell, ci) => {
       const align = ci === 0 ? 'left' : 'right';
       const tx = align === 'right' ? x + cw[ci] - 2 : x;
@@ -488,12 +496,12 @@ export async function generateReport(opts) {
     e.payback_with_ets_years ? e.payback_with_ets_years.toFixed(1) + ' YR' : '—',
   ]);
   y = table(p, ['#', 'ESD Technology', 'Install', 'Lead', 'Eff%', 'Cost', 'Savings /YR', 'Payback'],
-    eRows, y, [6, 46, 15, 12, 12, 22, 22, 15], { x: P3X, width: P3W });
+    eRows, y += 18, [6, 46, 15, 12, 12, 22, 22, 15], { x: P3X, width: P3W });
 
-  if (tl.length && y < PH - 50) {
-    y += 10; y = secTitle(p, 'Implementation Timeline', y, C.navy, P3X);
+  if (tl.length && y < CONTENT_BOTTOM - 30) {
+    y += 10; y = secTitle(p, 'Implementation Timeline', y += 8, C.navy, P3X);
     const tlRows = tl.map(t => [t.implementation_label, displayTechName(t.name), t.installation_req?.replace('_', '-'), '+' + t.saving_pct + '%']);
-    y = table(p, ['Date', 'ESD', 'Type', 'Saving%'], tlRows, y, [22, 68, 20, 14], { x: P3X, width: P3W });
+    y = table(p, ['Date', 'ESD', 'Type', 'Saving%'], tlRows, y += 6, [22, 68, 20, 14], { x: P3X, width: P3W });
   }
 
   // Payback sensitivity table — exact shape confirmed from backend
@@ -512,7 +520,7 @@ export async function generateReport(opts) {
     const pbOverall = pbSens.overall_payback_by_case || [];
     const pbCurrent = pbSens.overall_current_payback;
 
-    if (pbPrices.length && esdSens.length && y < PH - 50) {
+    if (pbPrices.length && esdSens.length && y < CONTENT_BOTTOM - 30) {
       y += 10;
       y = secTitle(p, 'Payback Period - Fuel Price Sensitivity (yrs)', y += 10, C.navy, P3X);
 
@@ -610,7 +618,7 @@ export async function generateReport(opts) {
     { label: 'Total EU compliance', value: fmt$(pen.total_eu_compliance_cost_usd) + ' /YR', color: C.red, accent: C.red },
     { label: 'EUA cost', value: fmt$(eua.total_eua_cost_usd) + ' /YR', color: C.amber, accent: C.amber },
     { label: 'FuelEU penalty', value: fmt$(feu.penalty_usd) + ' /YR', color: feu.compliant ? C.green : C.red, accent: C.navy },
-  ], y);
+  ], y += 10);
 
   // GHG intensity as clean table
   y = table(p,
@@ -620,11 +628,11 @@ export async function generateReport(opts) {
       ['TTW (Tank-to-Wake)', feu.ghg_intensity_ttw?.toFixed(4) || '—', '', ''],
       ['Total GHG intensity', feu.ghg_intensity_total?.toFixed(4) || '—', feu.ghg_target?.toFixed(4) || '—', feu.compliant ? 'COMPLIANT' : 'NON-COMPLIANT'],
     ],
-    y, [55, 40, 40, 37]
+    y += 10, [55, 40, 40, 37]
   );
   y += 11;
 
-  y = secTitle(p, 'Year-by-Year Projection', y);
+  y = secTitle(p, 'Year-by-Year Projection', y += 10);
   const yrRows = yearly.map(r => [
     r.year, r.active_months + ' MO',
     r.target?.toFixed(2), r.vessel_ghg?.toFixed(4),
@@ -633,18 +641,18 @@ export async function generateReport(opts) {
     fmt$(r.esd_fuel_savings_usd), fmt$(r.esd_eua_savings_usd), fmt$(r.esd_fueleu_savings_usd),
   ]);
   y = table(p, ['Year', 'MO', 'Target', 'GHG', 'Excess', 'FuelEU', 'EUA', 'ESD Fuel', 'ESD EUA', 'ESD FEU'],
-    yrRows, y, [12, 10, 16, 18, 16, 20, 20, 20, 18, 18], { fontSize: 6.5, rowH: 5.5 });
+    yrRows, y += 10, [12, 10, 16, 18, 16, 20, 20, 20, 18, 18], { fontSize: 6.5, rowH: 5.5 });
 
   // ═══ PAGE 6 — FINANCIALS ══════════════════════════════════════════════
   p.addPage();
   y = 10;
-  y = secTitle(p, 'Financial Analysis', y);
+  y = secTitle(p, 'Financial Analysis', y += 6);
 
   y = kpiRow(p, [
     { label: 'NPV', value: fmt$(fSum.npv_usd), color: fSum.npv_usd >= 0 ? C.green : C.red, accent: fSum.npv_usd >= 0 ? C.green : C.red },
     { label: 'Savings PV', value: fmt$(fSum.savings_pv_usd), color: C.blue, accent: C.blue },
     { label: 'Payback', value: fSum.payback_years ? fSum.payback_years.toFixed(1) + ' YRS' : '—', color: C.black, accent: C.navy },
-  ], y);
+  ], y += 10);
   y = kpiRow(p, [
     { label: 'IRR', value: fSum.irr_pct ? fSum.irr_pct.toFixed(1) + '%' : '—', color: C.blue, accent: C.blue },
     { label: 'Investment', value: fmt$(fSum.total_investment_usd), color: C.red, accent: C.red },
@@ -654,13 +662,13 @@ export async function generateReport(opts) {
 
   // Financial charts — larger now that header is removed, more breathing room
   const fH = 58;
-  if (opexImg) {
+  if (opexImg && y + 4 + fH <= CONTENT_BOTTOM) {
     p.setFontSize(7); p.setFont('helvetica', 'bold'); p.setTextColor(C.slate);
     p.text('Yearly savings breakdown', M, y); y += 4;
     y = addChart(p, opexImg, M, y, CW, fH, '');
     y += 6;
   }
-  if (cashImg || overviewImg) {
+  if ((cashImg || overviewImg) && y + 4 + fH <= CONTENT_BOTTOM) {
     p.setFontSize(7); p.setFont('helvetica', 'bold'); p.setTextColor(C.slate);
     if (cashImg) p.text('Accumulated cashflow', M, y);
     if (overviewImg) p.text('Investment overview', M + halfW + 6, y);
