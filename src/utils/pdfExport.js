@@ -13,18 +13,18 @@ const PW = 210, PH = 297, M = 14, CW = PW - M * 2;
 
 // ── Colour palette ───────────────────────────────────────────────────────
 const C = {
-  navy:    '#1E3A5F',
-  navyD:   '#142841',
-  blue:    '#2563EB',
-  slate:   '#475569',
-  muted:   '#94A3B8',
-  border:  '#CBD5E1',
-  light:   '#F8FAFC',
-  white:   '#FFFFFF',
-  black:   '#0F172A',
-  green:   '#059669',
-  red:     '#DC2626',
-  amber:   '#D97706',
+  navy: '#1E3A5F',
+  navyD: '#142841',
+  blue: '#2563EB',
+  slate: '#475569',
+  muted: '#94A3B8',
+  border: '#CBD5E1',
+  light: '#F8FAFC',
+  white: '#FFFFFF',
+  black: '#0F172A',
+  green: '#059669',
+  red: '#DC2626',
+  amber: '#D97706',
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -32,8 +32,8 @@ const fmt$ = n => {
   if (n == null || isNaN(n)) return '—';
   const a = Math.abs(n);
   const s = n < 0 ? '-' : '';
-  if (a >= 1e6)  return s + '$' + (a / 1e6).toFixed(2) + 'M';
-  if (a >= 1e3)  return s + '$' + Math.round(a).toLocaleString();
+  if (a >= 1e6) return s + '$' + (a / 1e6).toFixed(2) + 'M';
+  if (a >= 1e3) return s + '$' + Math.round(a).toLocaleString();
   return s + '$' + a.toFixed(0);
 };
 const fmtN = (n, d = 0) => n != null ? Number(n).toLocaleString(undefined, { maximumFractionDigits: d }) : '—';
@@ -54,20 +54,20 @@ function capChart(id) {
   try {
     const el = document.getElementById(id);
     if (!el || el.width === 0 || el.height === 0) return null;
-    
+
     // Create a temporary canvas with white background
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = el.width;
     tempCanvas.height = el.height;
     const ctx = tempCanvas.getContext('2d');
-    
+
     // Fill with white background
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-    
+
     // Draw original chart on top
     ctx.drawImage(el, 0, 0);
-    
+
     return tempCanvas.toDataURL('image/png', 1.0);
   } catch (e) {
     console.warn('capChart failed for', id, e.message);
@@ -77,20 +77,20 @@ function capChart(id) {
 function capRef(el) {
   try {
     if (!el || el.width === 0 || el.height === 0) return null;
-    
+
     // Create a temporary canvas with white background
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = el.width;
     tempCanvas.height = el.height;
     const ctx = tempCanvas.getContext('2d');
-    
+
     // Fill with white background
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-    
+
     // Draw original chart on top
     ctx.drawImage(el, 0, 0);
-    
+
     return tempCanvas.toDataURL('image/png', 1.0);
   } catch (e) {
     console.warn('capRef failed:', e.message);
@@ -107,8 +107,8 @@ async function ensureTab(tabKey, waitMs = 800) {
     // Match by tab key in className or text content
     const text = t.textContent.trim().toLowerCase();
     return text.includes(tabKey) ||
-           (tabKey === 'cii' && (text.includes('cii') || text.includes('carbon'))) ||
-           (tabKey === 'fin' && (text.includes('financial') || text.includes('finance')));
+      (tabKey === 'cii' && (text.includes('cii') || text.includes('carbon'))) ||
+      (tabKey === 'fin' && (text.includes('financial') || text.includes('finance')));
   });
   if (!btn) { console.warn('Tab not found:', tabKey); return; }
   const isActive = btn.classList.contains('on');
@@ -153,9 +153,9 @@ function secTitle(p, text, y, color = C.navy, x = M) {
 
 // ── KPI card row ─────────────────────────────────────────────────────────
 function kpiRow(p, items, y, x0 = M, width = CW) {
-  const gap  = 5;
+  const gap = 5;
   const cardH = 21;
-  const w    = (width - gap * (items.length - 1)) / items.length;
+  const w = (width - gap * (items.length - 1)) / items.length;
   items.forEach((k, i) => {
     const x = x0 + i * (w + gap);
     // Card background
@@ -199,7 +199,7 @@ function table(p, heads, rows, y, ws, opts = {}) {
   let x = X + 2;
   heads.forEach((h, i) => {
     const align = i === 0 ? 'left' : 'right';
-    const tx    = align === 'right' ? x + cw[i] - 2 : x;
+    const tx = align === 'right' ? x + cw[i] - 2 : x;
     p.text(String(h), tx, y + 6, { align });
     x += cw[i];
   });
@@ -218,8 +218,8 @@ function table(p, heads, rows, y, ws, opts = {}) {
     x = X + 2;
     row.forEach((cell, ci) => {
       const align = ci === 0 ? 'left' : 'right';
-      const tx    = align === 'right' ? x + cw[ci] - 2 : x;
-      const val   = String(cell ?? '—');
+      const tx = align === 'right' ? x + cw[ci] - 2 : x;
+      const val = String(cell ?? '—');
       p.setTextColor(C.black);
       p.text(val, tx, y + rowH - 1.7, { align });
       x += cw[ci];
@@ -252,7 +252,7 @@ function addChart(p, img, x, y, w, h) {
     p.setFillColor(C.light); p.setDrawColor(C.border); p.setLineWidth(0.3);
     p.roundedRect(x, y, w, h, 2, 2, 'FD');
     p.setFontSize(7); p.setTextColor(C.muted); p.setFont('helvetica', 'italic');
-    p.text('Visit CII / Financial tab before downloading', x + w/2, y + h/2 + 2, {align:'center'});
+    p.text('Visit CII / Financial tab before downloading', x + w / 2, y + h / 2 + 2, { align: 'center' });
   } else {
     p.addImage(img, 'PNG', x, y, w, h);
     p.setDrawColor(C.border); p.setLineWidth(0.2);
@@ -269,28 +269,28 @@ export async function generateReport(opts) {
   if (!jsPDF) { alert('jsPDF not loaded — add CDN to index.html'); return; }
 
   const { input, output, vesselName, chartRefs = {} } = opts;
-  const v   = input?.vessel || {};
-  const vm  = input?.voyage_meta || {};
+  const v = input?.vessel || {};
+  const vm = input?.voyage_meta || {};
   const mch = input?.machines || [];
   const esds = input?.esd_measures || [];
-  const imo  = v.imo_number || '';
+  const imo = v.imo_number || '';
   const name = vesselName || v.vessel_name || 'Vessel';
 
-  const esd     = output?.esd || {};
-  const esdR    = esd.esd_results || [];
-  const cii     = output?.cii || {};
-  const fin     = output?.financial || {};
-  const fSum    = fin.summary || {};
-  const feu     = output?.fuel_eu_penalty || {};
-  const eua     = output?.eua || {};
-  const pen     = output?.penalty_summary || {};
-  const yearly  = output?.fueleu_yearly_breakdown || [];
-  const tl      = cii.graph3_esd?.esd_timeline || [];
-  const cf      = fin.monthly_cashflows || [];
-  const now     = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  const TOTAL   = 6;
+  const esd = output?.esd || {};
+  const esdR = esd.esd_results || [];
+  const cii = output?.cii || {};
+  const fin = output?.financial || {};
+  const fSum = fin.summary || {};
+  const feu = output?.fuel_eu_penalty || {};
+  const eua = output?.eua || {};
+  const pen = output?.penalty_summary || {};
+  const yearly = output?.fueleu_yearly_breakdown || [];
+  const tl = cii.graph3_esd?.esd_timeline || [];
+  const cf = fin.monthly_cashflows || [];
+  const now = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const TOTAL = 6;
 
-  const totC    = mch.reduce((s, m) => s + m.fuel_particulars.reduce((ss, f) => ss + (f.consumption_mt || 0), 0), 0);
+  const totC = mch.reduce((s, m) => s + m.fuel_particulars.reduce((ss, f) => ss + (f.consumption_mt || 0), 0), 0);
   const totCost = mch.reduce((s, m) => s + m.fuel_particulars.reduce((ss, f) => ss + (f.consumption_mt || 0) * (f.fuel_price_usd_per_mt || 0), 0), 0);
 
   // Navigate to each tab, wait for Chart.js animation to complete, then capture
@@ -301,16 +301,16 @@ export async function generateReport(opts) {
   await ensureTab('cii', 800);
   // Extra frame wait to ensure paint is complete
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  const g1  = capChart('sim-g1');
-  const g2  = capChart('sim-g2');
-  const g3  = capChart('sim-g3');
-  const g4  = capChart('sim-g4');
+  const g1 = capChart('sim-g1');
+  const g2 = capChart('sim-g2');
+  const g3 = capChart('sim-g3');
+  const g4 = capChart('sim-g4');
 
   // Financial charts
   await ensureTab('fin', 800);
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  const cashImg     = capRef(chartRefs.cash);
-  const opexImg     = capRef(chartRefs.opex);
+  const cashImg = capRef(chartRefs.cash);
+  const opexImg = capRef(chartRefs.opex);
   const overviewImg = capRef(chartRefs.overview);
 
   // Restore original tab
@@ -350,11 +350,11 @@ export async function generateReport(opts) {
   p.setFillColor('#E2E8F0'); p.roundedRect(imgX, imgY, imgW, imgH, 2, 2, 'F');
   p.setFillColor('#CBD5E1'); p.roundedRect(imgX, imgY, imgW, imgH, 2, 2, 'D');
   p.setFontSize(8); p.setFont('helvetica', 'italic'); p.setTextColor('#94A3B8');
-  p.text('Vessel image', imgX + imgW/2, imgY + imgH/2 - 2, { align: 'center' });
-  p.text('(pass vesselImageB64 to show photo)', imgX + imgW/2, imgY + imgH/2 + 5, { align: 'center' });
+  p.text('Vessel image', imgX + imgW / 2, imgY + imgH / 2 - 2, { align: 'center' });
+  p.text('(pass vesselImageB64 to show photo)', imgX + imgW / 2, imgY + imgH / 2 + 5, { align: 'center' });
   // If a vessel image was passed in options, render it
   if (opts.vesselImageB64) {
-    try { p.addImage(opts.vesselImageB64, 'JPEG', imgX, imgY, imgW, imgH, '', 'FAST'); } catch(e) {}
+    try { p.addImage(opts.vesselImageB64, 'JPEG', imgX, imgY, imgW, imgH, '', 'FAST'); } catch (e) { }
   }
 
   // ── Bottom section: vessel name left, TOC right ──
@@ -400,7 +400,7 @@ export async function generateReport(opts) {
   const logoY = PH - 24;
   try {
     p.addImage(LOGO_B64, 'JPEG', tX, logoY, 38, 14);
-  } catch(e) {
+  } catch (e) {
     p.setFontSize(10); p.setFont('helvetica', 'bold'); p.setTextColor('#1B2A4A');
     p.text('azolla', tX, logoY + 10);
   }
@@ -410,21 +410,21 @@ export async function generateReport(opts) {
   // so every page (including this one) shares the same "X / Y" style.
 
   // ═══ PAGE 2 — VESSEL + FUEL ═══════════════════════════════════════════
-  p.addPage(); 
+  p.addPage();
   y = 10;
 
   y = secTitle(p, 'Vessel Information', y);
 
   // Full vessel info as a clean 2-column table
   const vesselInfo = [
-    ['Owner',              v.name_of_owner || '—',                    'IMO Number',       imo],
-    ['Vessel type',        v.vessel_type || '—',                      'Flag',             v.flag || '—'],
-    ['Built',              String(v.build_year || '—'),                'Classification',   v.classification_society || '—'],
-    ['DWT',                fmtN(v.dead_weight) + ' MT',               'Gross tonnage',    fmtN(v.gross_tonnage) + ' GT'],
-    ['Sailing days',       vm.sailing_days_per_year + ' /YR',         'Non-sailing days', vm.non_steaming_days_per_year + ' /YR'],
-    ['Distance',           fmtN(vm.distance_nm) + ' NM/YR',          'EU voyage share',  vm.eu_voyages_percent + '%'],
-    ['EUA cost',           String(vm.eua_cost_usd) + ' USD/TCO2',    'Discount rate',    ((input?.discount_rate||0.1)*100) + '%'],
-    ['Analysis start',     vm.analysis_month + '/' + vm.analysis_year,'Docking month',    String(vm.docking_month || '—')],
+    ['Owner', v.name_of_owner || '—', 'IMO Number', imo],
+    ['Vessel type', v.vessel_type || '—', 'Flag', v.flag || '—'],
+    ['Built', String(v.build_year || '—'), 'Classification', v.classification_society || '—'],
+    ['DWT', fmtN(v.dead_weight) + ' MT', 'Gross tonnage', fmtN(v.gross_tonnage) + ' GT'],
+    ['Sailing days', vm.sailing_days_per_year + ' /YR', 'Non-sailing days', vm.non_steaming_days_per_year + ' /YR'],
+    ['Distance', fmtN(vm.distance_nm) + ' NM/YR', 'EU voyage share', vm.eu_voyages_percent + '%'],
+    ['EUA cost', String(vm.eua_cost_usd) + ' USD/TCO2', 'Discount rate', ((input?.discount_rate || 0.1) * 100) + '%'],
+    ['Analysis start', vm.analysis_month + '/' + vm.analysis_year, 'Docking month', String(vm.docking_month || '—')],
   ];
   const hw = CW / 2;
   vesselInfo.forEach((row, ri) => {
@@ -438,14 +438,14 @@ export async function generateReport(opts) {
     y += 11.2;
   });
   // Divider
-  p.setDrawColor(C.border); p.setLineWidth(0.2); p.line(M, y, PW-M, y);
+  p.setDrawColor(C.border); p.setLineWidth(0.2); p.line(M, y, PW - M, y);
   y += 12;
 
-   y = kpiRow(p, [
+  y = kpiRow(p, [
     { label: 'Total fuel consumption', value: fmtN(totC, 0) + ' MT /YR', color: C.black, accent: C.navy },
-    { label: 'Total fuel cost',        value: fmt$(totCost) + ' /YR',      color: C.amber, accent: C.amber },
-    { label: 'EU compliance cost',     value: fmt$(pen.total_eu_compliance_cost_usd) + ' /YR', color: C.red, accent: C.red },
-    { label: 'Machines',               value: String(mch.length),           color: C.black, accent: C.slate },
+    { label: 'Total fuel cost', value: fmt$(totCost) + ' /YR', color: C.amber, accent: C.amber },
+    { label: 'EU compliance cost', value: fmt$(pen.total_eu_compliance_cost_usd) + ' /YR', color: C.red, accent: C.red },
+    { label: 'Machines', value: String(mch.length), color: C.black, accent: C.slate },
   ], y);
 
   y = secTitle(p, 'Fuel Consumption', y += 10);
@@ -460,7 +460,7 @@ export async function generateReport(opts) {
   y += 10;
 
   // Quick-read KPI cards — placed BELOW fuel consumption, at the end of the page
- 
+
 
   // ═══ PAGE 3 — ESD PERFORMANCE ═════════════════════════════════════════
   // This page only: content starts from the extreme left (small margin)
@@ -473,9 +473,9 @@ export async function generateReport(opts) {
   y = secTitle(p, 'ESD Performance Summary', y, C.navy, P3X);
 
   y = kpiRow(p, [
-    { label: 'Total investment',  value: fmt$(esd.summary?.total_cost_usd),              color: C.red,   accent: C.red },
+    { label: 'Total investment', value: fmt$(esd.summary?.total_cost_usd), color: C.red, accent: C.red },
     { label: 'Annual fuel savings', value: fmt$(esd.summary?.total_annual_cost_savings), color: C.green, accent: C.green },
-    { label: 'CO2 reduction',    value: fmtN(esd.summary?.total_co2_reduction_mt, 0) + ' MT', color: C.blue, accent: C.blue },
+    { label: 'CO2 reduction', value: fmtN(esd.summary?.total_co2_reduction_mt, 0) + ' MT', color: C.blue, accent: C.blue },
   ], y, P3X, P3W);
 
   const eRows = esdR.map((e, i) => [
@@ -507,8 +507,8 @@ export async function generateReport(opts) {
     const activeFuel = (pbSens.active_fuel_types || [])[0]
       || Object.keys(pbSens.fuel_type_ranges || {})[0]
       || null;
-    const pbPrices  = activeFuel ? (pbSens.fuel_type_ranges[activeFuel] || []) : [];
-    const esdSens   = pbSens.esd_sensitivity || [];
+    const pbPrices = activeFuel ? (pbSens.fuel_type_ranges[activeFuel] || []) : [];
+    const esdSens = pbSens.esd_sensitivity || [];
     const pbOverall = pbSens.overall_payback_by_case || [];
     const pbCurrent = pbSens.overall_current_payback;
 
@@ -518,7 +518,7 @@ export async function generateReport(opts) {
 
       // Find the index of current price in the price list to mark it
       const currPrice = activeFuel ? (pbSens.current_fuel_prices?.[activeFuel] || null) : null;
-      const currIdx   = currPrice != null ? pbPrices.indexOf(currPrice) : -1;
+      const currIdx = currPrice != null ? pbPrices.indexOf(currPrice) : -1;
 
       // Build headers: #, ESD, price1, price2..., Current
       const sensHeaders = ['#', 'ESD Technology',
@@ -529,7 +529,7 @@ export async function generateReport(opts) {
       const sensRows = esdSens.map((e, i) => [
         i + 1,
         displayTechName(e.tech_name) || '?',
-        ...( e.payback_by_case || [] ).map(pb => pb != null ? Number(pb).toFixed(1) : '-'),
+        ...(e.payback_by_case || []).map(pb => pb != null ? Number(pb).toFixed(1) : '-'),
         e.current_payback_with_eu != null ? Number(e.current_payback_with_eu).toFixed(1) : '-',
       ]);
 
@@ -546,7 +546,7 @@ export async function generateReport(opts) {
       // P3W is the widened (extreme-left) content width for this page
       const nameW = 40;
       const numCols = pbPrices.length + 1;  // +1 for Current column
-      const colW  = Math.max(7, Math.floor((P3W - 6 - nameW) / numCols));
+      const colW = Math.max(7, Math.floor((P3W - 6 - nameW) / numCols));
       const sensWidths = [6, nameW, ...Array(numCols).fill(colW)];
 
       y = table(p, sensHeaders, sensRows, y += 10, sensWidths, { fontSize: 5.5, rowH: 5, x: P3X, width: P3W });
@@ -574,15 +574,15 @@ export async function generateReport(opts) {
   // Gaps: 3+3 = 6mm   Total: 70+85+85+6 = 246mm ✓
 
   const colGap = 5;
-  const halfW  = (CW - colGap) / 2;
-  const colR   = M + halfW + colGap;
+  const halfW = (CW - colGap) / 2;
+  const colR = M + halfW + colGap;
 
   // ── Row 1: G1 (left) || G3 (right) ──────────────────────────────────
   p.setFontSize(6.5); p.setFont('helvetica', 'bold'); p.setTextColor(C.slate);
   p.text('Graph 1 — Baseline CII', M, y + 4);
   p.text('Graph 3 — ESD Rollout (monthly)', colR, y + 4);
   y += 7;
-  addChart(p, g1, M,    y, halfW, 65);
+  addChart(p, g1, M, y, halfW, 65);
   addChart(p, g3, colR, y, halfW, 65);
   y += 65 + 8;
 
@@ -607,17 +607,17 @@ export async function generateReport(opts) {
   y = secTitle(p, 'EU Compliance — EUA + FuelEU', y);
 
   y = kpiRow(p, [
-    { label: 'Total EU compliance', value: fmt$(pen.total_eu_compliance_cost_usd) + ' /YR', color: C.red,   accent: C.red },
-    { label: 'EUA cost',            value: fmt$(eua.total_eua_cost_usd) + ' /YR',           color: C.amber, accent: C.amber },
-    { label: 'FuelEU penalty',      value: fmt$(feu.penalty_usd) + ' /YR',                  color: feu.compliant ? C.green : C.red, accent: C.navy },
+    { label: 'Total EU compliance', value: fmt$(pen.total_eu_compliance_cost_usd) + ' /YR', color: C.red, accent: C.red },
+    { label: 'EUA cost', value: fmt$(eua.total_eua_cost_usd) + ' /YR', color: C.amber, accent: C.amber },
+    { label: 'FuelEU penalty', value: fmt$(feu.penalty_usd) + ' /YR', color: feu.compliant ? C.green : C.red, accent: C.navy },
   ], y);
 
   // GHG intensity as clean table
   y = table(p,
     ['GHG Metric', 'Value (gCO2eq/MJ)', 'FuelEU Target', 'Status'],
     [
-      ['WTT (Well-to-Tank)',  feu.ghg_intensity_wtt?.toFixed(4) || '—',   '',   ''],
-      ['TTW (Tank-to-Wake)',  feu.ghg_intensity_ttw?.toFixed(4) || '—',   '',   ''],
+      ['WTT (Well-to-Tank)', feu.ghg_intensity_wtt?.toFixed(4) || '—', '', ''],
+      ['TTW (Tank-to-Wake)', feu.ghg_intensity_ttw?.toFixed(4) || '—', '', ''],
       ['Total GHG intensity', feu.ghg_intensity_total?.toFixed(4) || '—', feu.ghg_target?.toFixed(4) || '—', feu.compliant ? 'COMPLIANT' : 'NON-COMPLIANT'],
     ],
     y, [55, 40, 40, 37]
@@ -641,14 +641,14 @@ export async function generateReport(opts) {
   y = secTitle(p, 'Financial Analysis', y);
 
   y = kpiRow(p, [
-    { label: 'NPV',         value: fmt$(fSum.npv_usd),          color: fSum.npv_usd >= 0 ? C.green : C.red, accent: fSum.npv_usd >= 0 ? C.green : C.red },
-    { label: 'Savings PV',  value: fmt$(fSum.savings_pv_usd),   color: C.blue,  accent: C.blue },
-    { label: 'Payback',     value: fSum.payback_years ? fSum.payback_years.toFixed(1) + ' YRS' : '—', color: C.black, accent: C.navy },
+    { label: 'NPV', value: fmt$(fSum.npv_usd), color: fSum.npv_usd >= 0 ? C.green : C.red, accent: fSum.npv_usd >= 0 ? C.green : C.red },
+    { label: 'Savings PV', value: fmt$(fSum.savings_pv_usd), color: C.blue, accent: C.blue },
+    { label: 'Payback', value: fSum.payback_years ? fSum.payback_years.toFixed(1) + ' YRS' : '—', color: C.black, accent: C.navy },
   ], y);
   y = kpiRow(p, [
-    { label: 'IRR',         value: fSum.irr_pct ? fSum.irr_pct.toFixed(1) + '%' : '—',   color: C.blue,  accent: C.blue },
-    { label: 'Investment',  value: fmt$(fSum.total_investment_usd),                         color: C.red,   accent: C.red },
-    { label: 'Accum. savings', value: fmt$(fSum.accumulated_savings_usd),                  color: C.green, accent: C.green },
+    { label: 'IRR', value: fSum.irr_pct ? fSum.irr_pct.toFixed(1) + '%' : '—', color: C.blue, accent: C.blue },
+    { label: 'Investment', value: fmt$(fSum.total_investment_usd), color: C.red, accent: C.red },
+    { label: 'Accum. savings', value: fmt$(fSum.accumulated_savings_usd), color: C.green, accent: C.green },
   ], y - 3);
   y += 8;
 
@@ -662,10 +662,10 @@ export async function generateReport(opts) {
   }
   if (cashImg || overviewImg) {
     p.setFontSize(7); p.setFont('helvetica', 'bold'); p.setTextColor(C.slate);
-    if (cashImg)     p.text('Accumulated cashflow', M, y);
+    if (cashImg) p.text('Accumulated cashflow', M, y);
     if (overviewImg) p.text('Investment overview', M + halfW + 6, y);
     y += 4;
-    if (cashImg)     addChart(p, cashImg, M, y, halfW, fH, '');
+    if (cashImg) addChart(p, cashImg, M, y, halfW, fH, '');
     if (overviewImg) addChart(p, overviewImg, M + halfW + 6, y, halfW, fH, '');
     y += fH + 10;
   }

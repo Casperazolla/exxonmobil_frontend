@@ -145,7 +145,9 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
   const [editingId, setEditingId] = useState(null);
   const [onboardLoading, setOnboardLoading] = useState(false);
   const [simulatingId, setSimulatingId] = useState(null);
-  const [selectedEsds, setSelectedEsds] = useState(savedDraft?.selectedEsds || []);
+  // ESD measure selections are intentionally NOT restored from the draft —
+  // only the raw form fields and machines should persist across a back/forward.
+  const [selectedEsds, setSelectedEsds] = useState([]);
   const [vesselsLoading, setVesselsLoading] = useState(true);
   const [vesselsError, setVesselsError] = useState(null);
   const [simulationData, setSimulationData] = useState(null);
@@ -206,11 +208,12 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ formData, machines, selectedEsds }));
+      // Only form values and machines are drafted — ESD measures are excluded on purpose.
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ formData, machines }));
     } catch (e) {
       console.warn('[onboard draft] Could not save draft:', e);
     }
-  }, [formData, machines, selectedEsds]);
+  }, [formData, machines]);
 
   const resetForm = () => {
     setFormData(getDefaultFormData());
@@ -228,7 +231,10 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         setEditingId(vesselId);
       }
     } else {
-
+      // Opening a fresh "+ Onboard Vessel" form — ESD selections must never
+      // carry over from a previous session (whether that session was saved,
+      // or just closed without saving).
+      setSelectedEsds([]);
       setEditingId(null);
     }
     setModalOpen(true);
@@ -395,28 +401,21 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
       const data = result.data.data;
 
       setSimulationData(data);
-
-      // initialize selected ESDs
-      setSelectedEsds(
-        data.voyage_meta.esd_recommended.selected_measures.map((esd, index) => ({
-          id: `api-${index}`,
-          name: esd.name,
-          category: esd.category,
-          efficiency_gain_percent: esd.efficiency_gain_percent,
-          cost_usd: esd.cost_usd,
-        }))
-      );
+      // NOTE: intentionally NOT calling setSelectedEsds here — that state
+      // belongs solely to the onboarding form's ESD checklist. Writing this
+      // vessel's recommended measures into it was leaking into the "+ Onboard
+      // Vessel" form the next time it was opened.
 
     } catch (err) {
       console.log(err);
     }
   };
   const saveVessel = async () => {
-    setOnboardLoading(true);
     if (!formData.vesselName || !formData.owner || !formData.imoNumber) {
       alert("Please fill in required fields");
       return;
     }
+    setOnboardLoading(true);
 
     // selectedEsds already holds full ESD objects (merged in by toggleEsd),
     // not bare IDs — no need to re-look them up in ESD_LIBRARY here.
@@ -511,7 +510,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
       // Auto-simulate to create the base report
       if (newVesselId) {
         try {
-          const simResult = await simulationAPI.simulate(payload, payload.esd_measures || []);
+          const simResult = await simulationAPI.simulate(payload, payload.esd_measures || [], payload.vessel_life_years, payload.discount_rate);
           if (simResult.success) {
             console.log('Base report created:', simResult.data?.data?.report_id || simResult.data?.report_id);
           } else {

@@ -1191,7 +1191,7 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
         });
       } else {
         // Base mode: create a NEW report
-        result = await simulationAPI.simulate(inputData, selectedEsds);
+        result = await simulationAPI.simulate(inputData, selectedEsds, vesselLifeYears, discountRate);
       }
 
       if (result.success) {

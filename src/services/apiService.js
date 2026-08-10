@@ -155,7 +155,10 @@ export const simulationAPI = {
    * @param {number} vesselLifeYears — default 25
    * @param {number} discountRate    — default 0.10
    */
-  simulate: async (simulationData, selectedEsds = [], vesselLifeYears = 25, discountRate = 0.10) => {
+  simulate: async (simulationData, selectedEsds = [], vesselLifeYears, discountRate = 0.10) => {
+    // Fallback: if caller forgot to pass vesselLifeYears explicitly, use the
+    // value already present on the simulationData payload before defaulting to 25.
+    vesselLifeYears = vesselLifeYears || simulationData?.vessel_life_years || 25;
     try {
       const inputPayload = {
         vessel: {
