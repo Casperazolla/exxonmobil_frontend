@@ -18,7 +18,7 @@ export const ESD_LIBRARY = [
   // Thermodynamic
   { id: "esd-014", name: "Ultra-Low Leakage Valves", category: "OPERATIONS", saving: 1.8, capex: 60000 , lead_time_months: 4, installation_req: "in_sailing" },
   { id: "esd-015", name: "Waste Heat Recovery Systems (WHR)", category: "OPERATIONS", saving: 5.2, capex: 350000 , lead_time_months: 4, installation_req: "in_sailing" },
-  { id: "esd-016", name: "Organic Rankine Cycle", category: "OPERATIONS", saving: 4.4, capex: 400000 , lead_time_months: 4, installation_req: "in_sailing" },
+  { id: "esd-016", name: "Organic Rankine Cycle (E-Propulsion)", category: "OPERATIONS", saving: 4.4, capex: 400000 , lead_time_months: 4, installation_req: "in_sailing" },
   { id: "esd-017", name: "Liquid Carbon Capture", category: "OPERATIONS", saving: 8.0, capex: 900000 , lead_time_months: 4, installation_req: "in_sailing" },
   { id: "esd-018", name: "Solid Carbon Capture", category: "OPERATIONS", saving: 7.5, capex: 850000 , lead_time_months: 4, installation_req: "in_sailing" },
 

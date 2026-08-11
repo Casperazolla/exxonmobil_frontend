@@ -1823,7 +1823,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
 
               <div className="onboard-card">
                 <div className="onboard-title">
-                  👤 Assign To
+                   Assign To
                 </div>
 
                 <Select
