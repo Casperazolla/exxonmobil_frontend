@@ -137,6 +137,17 @@ export const onboardingAPI = {
   },
 };
  
+export const userAPI = {
+  list: async () => {
+    try {
+      const data = await makeRequest('GET', '/users/list/');
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.message || error.message };
+    }
+  },
+};
+
 // ── SIMULATION ────────────────────────────────────────────────────────────────
 // Installation mapping for ESD categories (lead_time and installation_req defaults)
 const ESD_INSTALL_DEFAULTS = {

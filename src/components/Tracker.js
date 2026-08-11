@@ -18,7 +18,7 @@ import {
 import './Tracker.css';
 import { ESD_LIBRARY } from '../data/esdLibrary';
 import './Simulator.css';
-import { onboardingAPI, vesselAPI, simulationAPI, makeRequest } from '../services/apiService';
+import { onboardingAPI, vesselAPI, simulationAPI, userAPI, makeRequest } from '../services/apiService';
 import SimulationWorkspace from './SimulationWorkspace';
 
 
@@ -148,6 +148,16 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
   // ESD measure selections are intentionally NOT restored from the draft —
   // only the raw form fields and machines should persist across a back/forward.
   const [selectedEsds, setSelectedEsds] = useState([]);
+  // "Assign to" user — same rule as ESD measures: never restored from the
+  // draft, always reset when a fresh onboarding form is opened.
+  const [assignedUserId, setAssignedUserId] = useState(null);
+  // Email of the currently-selected assignee — used to re-resolve their id
+  // against a freshly fetched user list right before saving, in case ids
+  // shifted since the dropdown was first opened.
+  const [assignedUserEmail, setAssignedUserEmail] = useState(null);
+  const [userOptions, setUserOptions] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersLoaded, setUsersLoaded] = useState(false);
   const [vesselsLoading, setVesselsLoading] = useState(true);
   const [vesselsError, setVesselsError] = useState(null);
   const [simulationData, setSimulationData] = useState(null);
@@ -219,8 +229,31 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     setFormData(getDefaultFormData());
     setMachines(getDefaultMachines());
     setSelectedEsds([]);
+    setAssignedUserId(null);
+    setAssignedUserEmail(null);
     setEditingId(null);
     try { localStorage.removeItem(DRAFT_STORAGE_KEY); } catch (e) { }
+  };
+
+  // Lazily fetches the assignable-user list the first time the "Assign to
+  // user" dropdown is opened, so it isn't called on every render/re-open.
+  // Pass { force: true } to refetch even if already loaded (used right
+  // before saving, to resolve against the freshest data).
+  const loadUsersIfNeeded = async ({ force = false } = {}) => {
+    if (!force && (usersLoaded || usersLoading)) return userOptions;
+    setUsersLoading(true);
+    let list = userOptions;
+    try {
+      const result = await userAPI.list();
+      list = result?.data?.data || result?.data || result || [];
+      list = Array.isArray(list) ? list : [];
+      setUserOptions(list);
+      setUsersLoaded(true);
+    } catch (err) {
+      console.warn('Could not fetch users:', err);
+    }
+    setUsersLoading(false);
+    return list;
   };
 
   const openOnboardModal = (vesselId = null) => {
@@ -231,10 +264,12 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         setEditingId(vesselId);
       }
     } else {
-      // Opening a fresh "+ Onboard Vessel" form — ESD selections must never
-      // carry over from a previous session (whether that session was saved,
-      // or just closed without saving).
+      // Opening a fresh "+ Onboard Vessel" form — ESD selections and the
+      // assigned user must never carry over from a previous session (whether
+      // that session was saved, or just closed without saving).
       setSelectedEsds([]);
+      setAssignedUserId(null);
+      setAssignedUserEmail(null);
       setEditingId(null);
     }
     setModalOpen(true);
@@ -417,6 +452,24 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     }
     setOnboardLoading(true);
 
+    // Always re-fetch the user list right before saving — not just when a
+    // user was already selected — so the assigned user's id is resolved
+    // against the freshest data regardless of whether the "Assign To"
+    // dropdown was ever opened this session. Re-matched by email since
+    // that's stable even if the numeric id were to change.
+    const freshUsers = await loadUsersIfNeeded({ force: true });
+    let resolvedAssignedUserId = assignedUserId;
+    if (assignedUserId != null) {
+      const match = assignedUserEmail
+        ? freshUsers.find(u => u.email === assignedUserEmail)
+        : freshUsers.find(u => u.id === assignedUserId);
+      if (match) {
+        resolvedAssignedUserId = match.id;
+      } else {
+        console.warn('Assigned user not found in refreshed user list — sending last-known id:', assignedUserId);
+      }
+    }
+
     // selectedEsds already holds full ESD objects (merged in by toggleEsd),
     // not bare IDs — no need to re-look them up in ESD_LIBRARY here.
     const selectedEsdObjects = selectedEsds.filter(Boolean);
@@ -481,6 +534,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
       vessel_end_year: formData.vesselEndYear ? parseInt(formData.vesselEndYear, 10) : undefined,
       vessel_end_month: formData.vesselEndMonth ? parseInt(formData.vesselEndMonth, 10) : undefined,
       discount_rate: parseFloat(formData.discountRate) || 0.10,
+      assign_to_user_id: resolvedAssignedUserId || undefined,
     };
 
 
@@ -1765,6 +1819,39 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                   </div>
 
                 ))}
+              </div>
+
+              <div className="onboard-card">
+                <div className="onboard-title">
+                  👤 Assign To
+                </div>
+
+                <Select
+                  showSearch
+                  allowClear
+                  placeholder="Select a user to assign this vessel to"
+                  style={{ width: '100%' }}
+                  value={assignedUserId || undefined}
+                  loading={usersLoading}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  onDropdownVisibleChange={(open) => {
+                    if (open) loadUsersIfNeeded();
+                  }}
+                  onChange={(value) => {
+                    setAssignedUserId(value ?? null);
+                    const picked = userOptions.find(u => u.id === value);
+                    setAssignedUserEmail(picked?.email || null);
+                  }}
+                  options={userOptions.map(u => ({
+                    value: u.id,
+                    label: u.first_name || u.last_name
+                      ? `${u.first_name || ''} ${u.last_name || ''}`.trim() + (u.email ? ` (${u.email})` : '')
+                      : (u.email || u.username || `User ${u.id}`),
+                  }))}
+                  notFoundContent={usersLoading ? 'Loading users…' : 'No users found'}
+                />
               </div>
 
               <div className="modal-footer">
