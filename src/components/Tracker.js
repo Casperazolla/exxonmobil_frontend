@@ -295,10 +295,13 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
   }, [simulatingId, vessels]);
 
   const handleFormChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
+    // Number fields should never accept a minus sign — strip it rather than
+    // relying on the (easily bypassed) `min` attribute alone.
+    const sanitized = type === 'number' ? value.replace(/-/g, '') : value;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: sanitized
     }));
   };
 
@@ -363,6 +366,10 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     field,
     value
   ) => {
+    // Consumption and price are numeric and should never go negative.
+    const sanitized = (field === 'consumption' || field === 'price')
+      ? String(value).replace(/-/g, '')
+      : value;
     setMachines(prev =>
       prev.map((machine, index) => {
         if (index !== machineIndex) return machine;
@@ -373,7 +380,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
             i === fuelIndex
               ? {
                 ...fuel,
-                [field]: value
+                [field]: sanitized
               }
               : fuel
           )
@@ -1290,6 +1297,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                         onChange={handleFormChange}
                         placeholder="159927"
                         className="form-input"
+                        min="0"
                       />
                     </div>
                     <div className="form-group">
@@ -1301,6 +1309,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                         onChange={handleFormChange}
                         placeholder="302107"
                         className="form-input"
+                        min="0"
                       />
                     </div>
                   </div>
@@ -1321,6 +1330,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                         onChange={handleFormChange}
                         placeholder="200"
                         className="form-input"
+                        min="0"
                       />
                       <div className="form-hint">Total operating days at sea</div>
                     </div>
@@ -1333,6 +1343,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                         onChange={handleFormChange}
                         placeholder="165"
                         className="form-input"
+                        min="0"
                       />
                       <div className="form-hint">At port / idle</div>
                     </div>
@@ -1345,6 +1356,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                         onChange={handleFormChange}
                         placeholder="60000"
                         className="form-input"
+                        min="0"
                       />
                       <div className="form-hint">Annual voyage distance for CII</div>
                     </div>
@@ -1357,6 +1369,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                         onChange={handleFormChange}
                         placeholder="30"
                         className="form-input"
+                        min="0"
                       />
                       <div className="form-hint">For ETS / EUA calculation</div>
                     </div>
@@ -1369,6 +1382,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                         onChange={handleFormChange}
                         placeholder="75"
                         className="form-input"
+                        min="0"
                       />
                     </div>
                     <div className="form-group">
@@ -1408,7 +1422,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                   <div className="form-grid form-grid-3">
                     <div className="form-group">
                       <label className="form-label">Charter End Year</label>
-                      <input type="number" name="vesselEndYear" value={formData.vesselEndYear} onChange={handleFormChange} placeholder="e.g. 2029" className="form-input" />
+                      <input type="number" name="vesselEndYear" value={formData.vesselEndYear} onChange={handleFormChange} placeholder="e.g. 2029" className="form-input" min="0" />
                       <div className="form-hint">Leave blank to use Vessel Life</div>
                     </div>
                     <div className="form-group">
@@ -1417,7 +1431,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                     </div>
                     <div className="form-group">
                       <label className="form-label">Docking Year</label>
-                      <input type="number" name="dockingYear" value={formData.dockingYear} onChange={handleFormChange} placeholder="e.g. 2027" className="form-input" />
+                      <input type="number" name="dockingYear" value={formData.dockingYear} onChange={handleFormChange} placeholder="e.g. 2027" className="form-input" min="0" />
                       <div className="form-hint">First scheduled docking year</div>
                     </div>
                   </div>
@@ -1429,7 +1443,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                     </div>
                     <div className="form-group">
                       <label className="form-label">Common ESD Impl. Year</label>
-                      <input type="number" name="commonImplYear" value={formData.commonImplYear} onChange={handleFormChange} placeholder="e.g. 2026" className="form-input" />
+                      <input type="number" name="commonImplYear" value={formData.commonImplYear} onChange={handleFormChange} placeholder="e.g. 2026" className="form-input" min="0" />
                     </div>
                   </div>
                 </div>
@@ -1442,22 +1456,22 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                   <div className="form-grid form-grid-4">
                     <div className="form-group">
                       <label className="form-label">f_i (Capacity)</label>
-                      <input type="number" name="fI" value={formData.fI} onChange={handleFormChange} placeholder="1.0" className="form-input" step="0.01" />
+                      <input type="number" name="fI" value={formData.fI} onChange={handleFormChange} placeholder="1.0" className="form-input" step="0.01" min="0" />
                       <div className="form-hint">Capacity correction</div>
                     </div>
                     <div className="form-group">
                       <label className="form-label">f_m (Ice Class)</label>
-                      <input type="number" name="fM" value={formData.fM} onChange={handleFormChange} placeholder="1.0" className="form-input" step="0.01" />
+                      <input type="number" name="fM" value={formData.fM} onChange={handleFormChange} placeholder="1.0" className="form-input" step="0.01" min="0" />
                       <div className="form-hint">Ice-class correction</div>
                     </div>
                     <div className="form-group">
                       <label className="form-label">f_c (Shuttle)</label>
-                      <input type="number" name="fC" value={formData.fC} onChange={handleFormChange} placeholder="1.0" className="form-input" step="0.01" />
+                      <input type="number" name="fC" value={formData.fC} onChange={handleFormChange} placeholder="1.0" className="form-input" step="0.01" min="0" />
                       <div className="form-hint">Shuttle tanker correction</div>
                     </div>
                     <div className="form-group">
                       <label className="form-label">f_ivse (EEDI/VSE)</label>
-                      <input type="number" name="fIvse" value={formData.fIvse} onChange={handleFormChange} placeholder="1.0" className="form-input" step="0.01" />
+                      <input type="number" name="fIvse" value={formData.fIvse} onChange={handleFormChange} placeholder="1.0" className="form-input" step="0.01" min="0" />
                       <div className="form-hint">Voluntary structural enhancement</div>
                     </div>
                   </div>
@@ -1626,6 +1640,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                         onChange={handleFormChange}
                         placeholder="83828"
                         className="form-input"
+                        min="0"
                       />
                       <div className="form-hint">From FEUM Calculations sheet</div>
                     </div>
@@ -1756,8 +1771,9 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                                 style={!isAdmin ? { background: 'var(--surface-1)', color: 'var(--ink3)', cursor: 'not-allowed' } : {}}
                                 onChange={(e) => {
                                   if (!isAdmin) return;
+                                  const v = e.target.value.replace(/-/g, '');
                                   setSelectedEsds(prev => prev.map(esd =>
-                                    esd.id === item.id ? { ...esd, efficiency_gain_percent: e.target.value } : esd
+                                    esd.id === item.id ? { ...esd, efficiency_gain_percent: v } : esd
                                   ));
                                 }}
                               />
@@ -1771,8 +1787,9 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                                 style={!isAdmin ? { background: 'var(--surface-1)', color: 'var(--ink3)', cursor: 'not-allowed' } : {}}
                                 onChange={(e) => {
                                   if (!isAdmin) return;
+                                  const v = e.target.value.replace(/-/g, '');
                                   setSelectedEsds(prev => prev.map(esd =>
-                                    esd.id === item.id ? { ...esd, cost_usd: e.target.value } : esd
+                                    esd.id === item.id ? { ...esd, cost_usd: v } : esd
                                   ));
                                 }}
                               />
@@ -1787,8 +1804,9 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                                 style={!isAdmin ? { background: 'var(--surface-1)', color: 'var(--ink3)', cursor: 'not-allowed' } : {}}
                                 onChange={(e) => {
                                   if (!isAdmin) return;
+                                  const v = e.target.value.replace(/-/g, '');
                                   setSelectedEsds(prev => prev.map(esd =>
-                                    esd.id === item.id ? { ...esd, lead_time_months: e.target.value } : esd
+                                    esd.id === item.id ? { ...esd, lead_time_months: v } : esd
                                   ));
                                 }}
                               />

@@ -515,6 +515,17 @@ body {
   outline: none;
 }
 
+/* Hide the native up/down spin buttons on number inputs across the
+   onboarding form so they read as normal text-style fields, not counters. */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .form-input:focus {
   border-color: var(--green);
   box-shadow: 0 0 0 3px rgba(29, 158, 117, 0.1);
