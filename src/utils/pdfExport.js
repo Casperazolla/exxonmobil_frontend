@@ -608,45 +608,7 @@ if (vesselImageB64) {
     const pbOverall = pbSens.overall_payback_by_case || [];
     const pbCurrent = pbSens.overall_current_payback;
 
-    if (pbPrices.length && esdSens.length && y < CONTENT_BOTTOM - 30) {
-      y += 10;
-      y = secTitle(p, 'Payback Period - Fuel Price Sensitivity (yrs)', y += 10, C.navy, P3X);
-
-      // Find the index of current price in the price list to mark it
-      const currPrice = activeFuel ? (pbSens.current_fuel_prices?.[activeFuel] || null) : null;
-      const currIdx = currPrice != null ? pbPrices.indexOf(currPrice) : -1;
-
-      // Build headers: #, ESD, price1, price2..., Current
-      const sensHeaders = ['#', 'ESD Technology',
-        ...pbPrices.map((pr, i) => (i === currIdx ? '*$' + pr : '$' + pr)),
-        'Current'];
-
-      // Build ESD rows
-      const sensRows = esdSens.map((e, i) => [
-        i + 1,
-        displayTechName(e.tech_name) || '?',
-        ...(e.payback_by_case || []).map(pb => pb != null ? Number(pb).toFixed(1) : '-'),
-        e.current_payback_with_eu != null ? Number(e.current_payback_with_eu).toFixed(1) : '-',
-      ]);
-
-      // Overall row at bottom
-      if (pbOverall.length) {
-        sensRows.push([
-          '', 'Overall (Investment / Savings)',
-          ...pbOverall.map(pb => pb != null ? Number(pb).toFixed(1) : '-'),
-          pbCurrent != null ? Number(pbCurrent).toFixed(1) : '-',
-        ]);
-      }
-
-      // Column widths: 13 price cols + Current = 14 numeric cols
-      // P3W is the widened (extreme-left) content width for this page
-      const nameW = 40;
-      const numCols = pbPrices.length + 1;  // +1 for Current column
-      const colW = Math.max(7, Math.floor((P3W - 6 - nameW) / numCols));
-      const sensWidths = [6, nameW, ...Array(numCols).fill(colW)];
-
-      y = table(p, sensHeaders, sensRows, y += 10, sensWidths, { fontSize: 5.5, rowH: 5, x: P3X, width: P3W });
-    }
+   
   }
 
 
