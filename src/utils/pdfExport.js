@@ -272,6 +272,45 @@ function addChart(p, img, x, y, w, h) {
 // ════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT FUNCTION
 // ════════════════════════════════════════════════════════════════════════
+
+
+const VESSEL_IMAGE_URLS = {
+  "Bochem London":
+    "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/bochem_london_clean.png",
+
+  "Prachi":
+    "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/prachi_clean.png",
+
+  "Tenjun":
+    "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/tenjun_clean.png",
+};
+
+async function fetchImageAsDataURL(url) {
+  if (!url) return null;
+
+  try {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Image request failed: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.warn("Failed to load vessel image:", error);
+    return null;
+  }
+}
+
 export async function generateReport(opts) {
   const { jsPDF } = window.jspdf;
   if (!jsPDF) { alert('jsPDF not loaded — add CDN to index.html'); return; }
@@ -282,8 +321,23 @@ export async function generateReport(opts) {
   const mch = input?.machines || [];
   const esds = input?.esd_measures || [];
   const imo = v.imo_number || '';
-  const name = vesselName || v.vessel_name || 'Vessel';
+ const name = vesselName || v.vessel_name || 'Vessel';
 
+const vesselKey = String(name).trim().toLowerCase();
+
+const vesselImageUrl =
+  VESSEL_IMAGE_URLS[
+    Object.keys(VESSEL_IMAGE_URLS).find(
+      key => key.toLowerCase() === vesselKey
+    )
+  ];
+
+console.log("PDF vessel name:", name);
+console.log("PDF vessel image URL:", vesselImageUrl);
+
+const vesselImageB64 = await fetchImageAsDataURL(vesselImageUrl);
+
+console.log("PDF vessel image loaded:", !!vesselImageB64);
   const esd = output?.esd || {};
   const esdR = esd.esd_results || [];
   const cii = output?.cii || {};
@@ -353,17 +407,46 @@ export async function generateReport(opts) {
   p.setDrawColor('#1B2A4A'); p.setLineWidth(1.5);
   p.line(tX, 76, tX + 42, 76);
 
-  // ── Vessel image placeholder (grey box) ──
-  const imgX = tX, imgY = 82, imgW = CW, imgH = 78;
-  p.setFillColor('#E2E8F0'); p.roundedRect(imgX, imgY, imgW, imgH, 2, 2, 'F');
-  p.setFillColor('#CBD5E1'); p.roundedRect(imgX, imgY, imgW, imgH, 2, 2, 'D');
-  p.setFontSize(8); p.setFont('helvetica', 'italic'); p.setTextColor('#94A3B8');
-  p.text('Vessel image', imgX + imgW / 2, imgY + imgH / 2 - 2, { align: 'center' });
-  p.text('(pass vesselImageB64 to show photo)', imgX + imgW / 2, imgY + imgH / 2 + 5, { align: 'center' });
-  // If a vessel image was passed in options, render it
-  if (opts.vesselImageB64) {
-    try { p.addImage(opts.vesselImageB64, 'JPEG', imgX, imgY, imgW, imgH, '', 'FAST'); } catch (e) { }
+const imgX = tX;
+const imgY = 82;
+const imgW = CW;
+const imgH = 78;
+
+// Background placeholder
+p.setFillColor('#E2E8F0');
+p.roundedRect(imgX, imgY, imgW, imgH, 2, 2, 'F');
+
+// Add vessel-specific image
+if (vesselImageB64) {
+  try {
+    p.addImage(
+      vesselImageB64,
+      'PNG',
+      imgX,
+      imgY,
+      imgW,
+      imgH,
+      '',
+      'FAST'
+    );
+  } catch (e) {
+    console.warn('Could not add vessel image to PDF:', e);
   }
+} else {
+  p.setFillColor('#CBD5E1');
+  p.roundedRect(imgX, imgY, imgW, imgH, 2, 2, 'D');
+
+  p.setFontSize(8);
+  p.setFont('helvetica', 'italic');
+  p.setTextColor('#94A3B8');
+
+  p.text(
+    'Vessel image unavailable',
+    imgX + imgW / 2,
+    imgY + imgH / 2,
+    { align: 'center' }
+  );
+}
 
   // ── Bottom section: vessel name left, TOC right ──
   const botY = imgY + imgH + 10;
@@ -407,7 +490,7 @@ export async function generateReport(opts) {
   // ── Logo bottom left ──
   const logoY = PH - 24;
   try {
-    p.addImage(LOGO_B64, 'JPEG', tX, logoY, 38, 14);
+    p.addImage(LOGO_B64, 'JPEG', tX, logoY, 30, 15);
   } catch (e) {
     p.setFontSize(10); p.setFont('helvetica', 'bold'); p.setTextColor('#1B2A4A');
     p.text('azolla', tX, logoY + 10);

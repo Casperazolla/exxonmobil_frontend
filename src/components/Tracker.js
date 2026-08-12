@@ -19,6 +19,7 @@ import './Tracker.css';
 import { ESD_LIBRARY } from '../data/esdLibrary';
 import './Simulator.css';
 import { onboardingAPI, vesselAPI, simulationAPI, userAPI, makeRequest } from '../services/apiService';
+import { generateReport } from '../utils/pdfExport';
 import SimulationWorkspace from './SimulationWorkspace';
 
 
@@ -145,15 +146,10 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
   const [editingId, setEditingId] = useState(null);
   const [onboardLoading, setOnboardLoading] = useState(false);
   const [simulatingId, setSimulatingId] = useState(null);
-  // ESD measure selections are intentionally NOT restored from the draft —
-  // only the raw form fields and machines should persist across a back/forward.
+ 
   const [selectedEsds, setSelectedEsds] = useState([]);
-  // "Assign to" user — same rule as ESD measures: never restored from the
-  // draft, always reset when a fresh onboarding form is opened.
   const [assignedUserId, setAssignedUserId] = useState(null);
-  // Email of the currently-selected assignee — used to re-resolve their id
-  // against a freshly fetched user list right before saving, in case ids
-  // shifted since the dropdown was first opened.
+ 
   const [assignedUserEmail, setAssignedUserEmail] = useState(null);
   const [userOptions, setUserOptions] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -186,12 +182,31 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     setReportsLoading(false);
   };
 
-  const downloadReport = (report) => {
-    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = (report.report_id || 'report') + '.json';
-    a.click(); URL.revokeObjectURL(url);
+  // Report currently being turned into a PDF, so its row can show a spinner
+  // and other rows stay clickable.
+  const [pdfGeneratingId, setPdfGeneratingId] = useState(null);
+
+  const downloadReport = async (report, vessel) => {
+    const reportKey = report.report_id || report.id;
+    setPdfGeneratingId(reportKey);
+    try {
+      await generateReport({
+        input: report?.input || {},
+        output: report?.output || report,
+        vesselName: vessel?.vesselName || report?.input?.vessel?.vessel_name || 'Report',
+        // No chart canvases are on screen from this modal (it's opened from
+        // the vessel list, not the simulation workspace) — generateReport
+        // skips any chart it can't find and still renders every table/KPI
+        // page from the report's own data.
+        chartRefs: {},
+        filename: `${vessel?.vesselName || 'Report'}_${reportKey || 'ESD_Report'}.pdf`,
+      });
+    } catch (e) {
+      console.error('PDF error:', e);
+      alert('PDF generation failed: ' + e.message);
+    } finally {
+      setPdfGeneratingId(null);
+    }
   };
 
   const simulateFromReport = async (report, vessel) => {
@@ -235,10 +250,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     try { localStorage.removeItem(DRAFT_STORAGE_KEY); } catch (e) { }
   };
 
-  // Lazily fetches the assignable-user list the first time the "Assign to
-  // user" dropdown is opened, so it isn't called on every render/re-open.
-  // Pass { force: true } to refetch even if already loaded (used right
-  // before saving, to resolve against the freshest data).
+ 
   const loadUsersIfNeeded = async ({ force = false } = {}) => {
     if (!force && (usersLoaded || usersLoading)) return userOptions;
     setUsersLoading(true);
@@ -459,11 +471,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     }
     setOnboardLoading(true);
 
-    // Always re-fetch the user list right before saving — not just when a
-    // user was already selected — so the assigned user's id is resolved
-    // against the freshest data regardless of whether the "Assign To"
-    // dropdown was ever opened this session. Re-matched by email since
-    // that's stable even if the numeric id were to change.
+  
     const freshUsers = await loadUsersIfNeeded({ force: true });
     let resolvedAssignedUserId = assignedUserId;
     if (assignedUserId != null) {
@@ -1089,7 +1097,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                         <td style={{ padding: '8px', color: 'var(--ink3)' }}>{report.created_at ? new Date(report.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</td>
                         <td style={{ padding: '8px', textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                            <button className="btn btn-secondary btn-sm" onClick={() => downloadReport(report)}>⬇ Download</button>
+                           
                             <button className="btn btn-primary btn-sm" onClick={() => simulateFromReport(report, reportsVessel)}>⚙️ Simulate</button>
                           </div>
                         </td>

@@ -829,7 +829,7 @@ function FinancialTab({ out }) {
         </div>
       </div>
       <div className="g4" style={{marginBottom:14}}>
-        <div className="kpi"><div className="kpi-l">NPV</div><div className="kpi-v g">{fmt$(sum.npv_usd)}</div><div className="kpi-s">Savings PV − Investment</div></div>
+        <div className="kpi"><div className="kpi-l">NPV</div><div className="kpi-v g">{fmt$(sum.npv_usd)}</div></div>
         <div className="kpi"><div className="kpi-l">IRR</div><div className="kpi-v g">{sum.irr_pct!=null?sum.irr_pct.toFixed(1)+'%':'—'}</div></div>
         <div className="kpi"><div className="kpi-l">Savings PV</div><div className="kpi-v">{fmt$(sum.savings_pv_usd)}</div><div className="kpi-s">@ {sum.discount_rate_pct||10}% discount</div></div>
         <div className="kpi"><div className="kpi-l">Accumulated</div><div className="kpi-v">{fmt$(sum.accumulated_savings_usd)}</div><div className="kpi-s">Undiscounted total</div></div>

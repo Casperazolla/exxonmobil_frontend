@@ -61,7 +61,7 @@ export default function FinancialTab({ output }) {
         <div className="kpi-box">
           <div className="kl">NPV</div>
           <div className="kv green">{fmt$(sum.npv_usd)}</div>
-          <div className="ks">Savings PV − Investment</div>
+          
         </div>
         <div className="kpi-box">
           <div className="kl">IRR</div>
