@@ -532,14 +532,17 @@ if (vesselImageB64) {
   p.setDrawColor(C.border); p.setLineWidth(0.2); p.line(M, y, PW - M, y);
   y += 12;
 
-  y = kpiRow(p, [
+ 
+
+  y = secTitle(p, 'Fuel Consumption', y += 10);
+
+   y = kpiRow(p, [
     { label: 'Total fuel consumption', value: fmtN(totC, 0) + ' MT /YR', color: C.black, accent: C.navy },
     { label: 'Total fuel cost', value: fmt$(totCost) + ' /YR', color: C.amber, accent: C.amber },
     { label: 'EU compliance cost', value: fmt$(pen.total_eu_compliance_cost_usd) + ' /YR', color: C.red, accent: C.red },
     { label: 'Machines', value: String(mch.length), color: C.black, accent: C.slate },
   ], y);
 
-  y = secTitle(p, 'Fuel Consumption', y += 10);
   const fuelRows = mch.flatMap(m => m.fuel_particulars.map(fp => [
     m.machine_name, fp.fuel_name,
     fmtN(fp.consumption_mt, 2),
@@ -549,6 +552,8 @@ if (vesselImageB64) {
   fuelRows.push(['TOTAL', '', fmtN(totC, 2), '', fmt$(totCost)]);
   y = table(p, ['Machine', 'Fuel', 'MT / YR', 'Price (USD/MT)', 'Annual cost'], fuelRows, y, [40, 20, 22, 24, 26]);
   y += 10;
+
+  
 
   // Quick-read KPI cards — placed BELOW fuel consumption, at the end of the page
 
