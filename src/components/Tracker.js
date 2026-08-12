@@ -501,7 +501,9 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         sailing_days_per_year: parseInt(formData.sailingDays, 10) || 200,
         non_steaming_days_per_year: parseInt(formData.nonSteamingDays, 10) || 165,
         distance_nm: parseFloat(formData.distanceNm) || 60000,
-        eu_voyages_percent: parseFloat(formData.euPct) || 30,
+        // parseFloat("0") is 0, which is falsy — `|| 30` would wrongly
+        // override a genuine 0% entry, so only fall back on NaN/blank input.
+        eu_voyages_percent: Number.isNaN(parseFloat(formData.euPct)) ? 30 : parseFloat(formData.euPct),
         eua_cost_usd: parseFloat(formData.euaCost) || 75,
         f_i: parseFloat(formData.fI) || 1.0,
         f_m: parseFloat(formData.fM) || 1.0,
@@ -1823,7 +1825,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
 
               <div className="onboard-card">
                 <div className="onboard-title">
-                   Assign To
+                  Assign To
                 </div>
 
                 <Select

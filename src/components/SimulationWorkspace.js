@@ -1076,7 +1076,7 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
     setNonSailingDays(vm.non_steaming_days_per_year || 165);
     setEuaCost(vm.eua_cost_usd || 75);
     setDistanceNm(vm.distance_nm || 60000);
-    setEuVoyagePct(vm.eu_voyages_percent || 30);
+    setEuVoyagePct(vm.eu_voyages_percent ?? 30);
     setDockingMonth(vm.docking_month || '');
     setDockingYear(vm.docking_year || '');
     setCommonImplMonth(vm.common_impl_month || '');

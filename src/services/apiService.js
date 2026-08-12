@@ -137,6 +137,7 @@ export const onboardingAPI = {
   },
 };
  
+// ── USERS ─────────────────────────────────────────────────────────────────────
 export const userAPI = {
   list: async () => {
     try {
@@ -193,7 +194,7 @@ export const simulationAPI = {
           sailing_days_per_year:       simulationData.voyage_meta?.sailing_days_per_year       || 200,
           non_steaming_days_per_year:  simulationData.voyage_meta?.non_steaming_days_per_year  || 165,
           distance_nm:                 simulationData.voyage_meta?.distance_nm                 || 60000,
-          eu_voyages_percent:          simulationData.voyage_meta?.eu_voyages_percent          || 30,
+          eu_voyages_percent:          simulationData.voyage_meta?.eu_voyages_percent          ?? 30,
           eua_cost_usd:                simulationData.voyage_meta?.eua_cost_usd                || 75,
  
           f_i:    simulationData.voyage_meta?.f_i    || 1.0,
