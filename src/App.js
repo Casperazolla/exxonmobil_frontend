@@ -12,7 +12,6 @@ function App() {
   const handleLoginSuccess = (data) => {
     const email = typeof data === 'string' ? data : data?.user?.email || data?.email || '';
     const role  = data?.user?.role || 'user';
-      console.log('Resolved role:', role); // <-- and this
 
     localStorage.setItem('userEmail', email);
     localStorage.setItem('isAdmin', role === 'admin' ? 'true' : 'false');

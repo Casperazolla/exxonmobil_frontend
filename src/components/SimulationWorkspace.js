@@ -447,6 +447,10 @@ function CiiTab({ out }) {
       plugins: extra.useGradeBands ? [gradeBandsPlugin] : [],
       options:{
       responsive:true, maintainAspectRatio:false,
+      // Render the canvas bitmap at 3x its CSS size regardless of the
+      // screen's actual pixel ratio — otherwise a 1x display produces a
+      // low-res source image that looks blurry once stretched into the PDF.
+      devicePixelRatio:3,
       animation:{duration:300},
       plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:12}},
                tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(4)}`}}},
@@ -750,6 +754,7 @@ function FinancialTab({ out }) {
         }]},
         options:{
           responsive:true,maintainAspectRatio:false,
+          devicePixelRatio:3,
           plugins:{
             legend:{display:false},
             tooltip:{callbacks:{label:ctx=>fmtM(ctx.parsed.y)}},
@@ -790,7 +795,7 @@ function FinancialTab({ out }) {
           parsing:false,showLine:false,
         }
       ]},
-        options:{responsive:true,maintainAspectRatio:false,
+        options:{responsive:true,maintainAspectRatio:false,devicePixelRatio:3,
           plugins:{legend:{position:'top',labels:{font:{size:10},boxWidth:12,
             generateLabels:(chart)=>[
               {text:'Cumulative Cashflow',fillStyle:'#1D9E75',strokeStyle:'#1D9E75',lineWidth:2},
@@ -814,7 +819,7 @@ function FinancialTab({ out }) {
           {label:'FuelEU Savings',data:yr.map(r=>r.fuel_eu_savings),backgroundColor:'rgba(124,58,237,.8)',stack:'s'},
           {label:'Investment',data:yr.map(r=>-r.investment),backgroundColor:'rgba(220,38,38,.6)',stack:'s'},
         ]},
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}}},
+        options:{responsive:true,maintainAspectRatio:false,devicePixelRatio:3,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}}},
           scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'rgba(0,0,0,.04)',drawBorder:false},ticks:{font:{size:10},callback:fmtM}}}}
       });
     }
@@ -829,7 +834,7 @@ function FinancialTab({ out }) {
         </div>
       </div>
       <div className="g4" style={{marginBottom:14}}>
-        <div className="kpi"><div className="kpi-l">NPV</div><div className="kpi-v g">{fmt$(sum.npv_usd)}</div></div>
+        <div className="kpi"><div className="kpi-l">NPV</div><div className="kpi-v g">{fmt$(sum.npv_usd)}</div><div className="kpi-s">Savings PV − Investment</div></div>
         <div className="kpi"><div className="kpi-l">IRR</div><div className="kpi-v g">{sum.irr_pct!=null?sum.irr_pct.toFixed(1)+'%':'—'}</div></div>
         <div className="kpi"><div className="kpi-l">Savings PV</div><div className="kpi-v">{fmt$(sum.savings_pv_usd)}</div><div className="kpi-s">@ {sum.discount_rate_pct||10}% discount</div></div>
         <div className="kpi"><div className="kpi-l">Accumulated</div><div className="kpi-v">{fmt$(sum.accumulated_savings_usd)}</div><div className="kpi-s">Undiscounted total</div></div>
@@ -1033,7 +1038,7 @@ function EuTaxTab({ out }) {
 // =====================================================================
 // MAIN WORKSPACE
 // =====================================================================
-export default function SimulationWorkspace({ vesselId, vesselName, sessionMode, initialReport, vesselReports, isOnlyReport, onBack, isAdmin = false }) {  
+export default function SimulationWorkspace({ vesselId, vesselName, sessionMode, initialReport, vesselReports, isOnlyReport, onBack, isAdmin = false, autoExportPdf = false, onAutoExportDone }) {  
   const [loading,    setLoading]    = useState(false);
   const [running,    setRunning]    = useState(false);
   const [pdfLoading, setPdfLoading]  = useState(false);
@@ -1107,19 +1112,14 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
   useEffect(() => {
     (async () => {
       setLoading(true); setError(null);
-      console.log('[Workspace] Mount — vesselId:', vesselId, 'sessionMode:', sessionMode, 'initialReport:', !!initialReport);
-
-      // ── ALL data comes from the report selected in session modal ──
-      // initialReport is fetched by Tracker.confirmSession() via GET /simulation/report/?report_id=X
+     
       if (initialReport) {
         const inp = initialReport.input || initialReport;
-        console.log('[Workspace] Loading from report:', initialReport.report_id);
 
         populateSidebar(inp);
         setReportId(initialReport.report_id || null);
 
-        // "Latest" mode → show the report output immediately
-        // "Base" mode → only load inputs, user clicks Run Simulation for new report
+       
         if ((sessionMode === 'last' || isOnlyReport) && initialReport.output) {
           setReportData(initialReport);
         }
@@ -1146,7 +1146,6 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
 
   // ── run simulation ────────────────────────────────────────────────────
   const runSim = async () => {
-    console.log('[runSim] Starting — vesselMeta:', !!vesselMeta, 'sessionMode:', sessionMode, 'reportId:', reportId);
     if(!vesselMeta) { setError('Vessel data not loaded yet.'); return; }
     setRunning(true); setError(null);
 
@@ -1196,7 +1195,6 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
 
       if (result.success) {
         const report = result.data?.data || result.data;
-        console.log('[runSim] Success — report_id:', report?.report_id);
         setReportData(report);
         setReportId(report?.report_id || reportId);
         setEditCount(0);
@@ -1224,6 +1222,42 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
   const esdSum   = (out?.esd?.esd_results||[]).reduce((s,r)=>s+(r.total_annual_savings_usd||0),0);
   const grade    = out?.cii?.graph1_baseline?.[0]?.grade;
   const v        = inp.vessel||vesselMeta?.vessel||{};
+
+ 
+  const exportPdf = async () => {
+    setPdfLoading(true);
+    try {
+      await generateReport({
+        input: reportData?.input || {},
+        output: reportData?.output || reportData,
+        vesselName: v.vessel_name || vesselName || 'Report',
+        chartRefs: {
+          cash: document.querySelector('canvas[data-chart-id="cash"]'),
+          opex: document.querySelector('canvas[data-chart-id="opex"]'),
+          overview: document.querySelector('canvas[data-chart-id="overview"]'),
+        },
+        filename: `${v.vessel_name || vesselName || 'Report'}_ESD_Report.pdf`,
+      });
+    } catch (e) {
+      console.error('PDF error:', e);
+      alert('PDF generation failed: ' + e.message);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  // Auto-export once, as soon as report data (and therefore the CII /
+  // financial chart canvases) is available — used when this workspace was
+  // opened purely to generate a PDF in the background.
+  const autoExportFired = useRef(false);
+  useEffect(() => {
+    if (!autoExportPdf || autoExportFired.current || !reportData) return;
+    autoExportFired.current = true;
+    (async () => {
+      await exportPdf();
+      if (onAutoExportDone) onAutoExportDone();
+    })();
+  }, [autoExportPdf, reportData]);
 
   if(loading) return(
     <div style={{display:'flex',flex:1,alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12,color:'var(--ink3)'}}>

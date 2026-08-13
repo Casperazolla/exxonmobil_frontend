@@ -332,12 +332,10 @@ const vesselImageUrl =
     )
   ];
 
-console.log("PDF vessel name:", name);
-console.log("PDF vessel image URL:", vesselImageUrl);
+
 
 const vesselImageB64 = await fetchImageAsDataURL(vesselImageUrl);
 
-console.log("PDF vessel image loaded:", !!vesselImageB64);
   const esd = output?.esd || {};
   const esdR = esd.esd_results || [];
   const cii = output?.cii || {};

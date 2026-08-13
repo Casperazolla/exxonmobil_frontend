@@ -61,7 +61,6 @@ function getSharedYearRange(seriesArrays) {
 }
 
 export default function CiiTab({ output }) {
-  console.log('>>> CiiTab MOUNTED, output:', output);
   const [sailFilter, setSailFilter] = useState('all');
   const cii = output?.cii || {};
 
@@ -125,23 +124,12 @@ export default function CiiTab({ output }) {
     });
   }, [combStepLines, combKeys]);
 
-  // TEMP DEBUG — remove after diagnosing
-  console.log('baseline last x:', baselineChartData[baselineChartData.length - 1]);
-  console.log('esdMonthly raw last entry:', esdMonthly[esdMonthly.length - 1]);
-  console.log('esdLine last x:', esdLine[esdLine.length - 1]);
-  console.log('combined keys:', combKeys);
+  
   combKeys.forEach(k => {
     const raw = combined[k] || [];
-    console.log(`combined[${k}] raw last entry:`, raw[raw.length - 1]);
   });
-  console.log('combChartData last x:', combChartData[combChartData.length - 1]);
 
-  // --- SHARED AXIS RANGE ---
-  // Instead of each graph deriving its own domain/ticks from only its own
-  // array (which silently truncates the axis whenever that particular
-  // series is shorter than the others), compute one range from everything
-  // and reuse it everywhere. This is the actual fix for the graph 3/4
-  // truncation issue.
+ 
   const yearRange = useMemo(
     () => getSharedYearRange([baselineChartData, esdLine, combChartData]),
     [baselineChartData, esdLine, combChartData]

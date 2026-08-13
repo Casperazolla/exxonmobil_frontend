@@ -19,7 +19,6 @@ import './Tracker.css';
 import { ESD_LIBRARY } from '../data/esdLibrary';
 import './Simulator.css';
 import { onboardingAPI, vesselAPI, simulationAPI, userAPI, makeRequest } from '../services/apiService';
-import { generateReport } from '../utils/pdfExport';
 import SimulationWorkspace from './SimulationWorkspace';
 
 
@@ -146,10 +145,15 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
   const [editingId, setEditingId] = useState(null);
   const [onboardLoading, setOnboardLoading] = useState(false);
   const [simulatingId, setSimulatingId] = useState(null);
- 
+  // ESD measure selections are intentionally NOT restored from the draft —
+  // only the raw form fields and machines should persist across a back/forward.
   const [selectedEsds, setSelectedEsds] = useState([]);
+  // "Assign to" user — same rule as ESD measures: never restored from the
+  // draft, always reset when a fresh onboarding form is opened.
   const [assignedUserId, setAssignedUserId] = useState(null);
- 
+  // Email of the currently-selected assignee — used to re-resolve their id
+  // against a freshly fetched user list right before saving, in case ids
+  // shifted since the dropdown was first opened.
   const [assignedUserEmail, setAssignedUserEmail] = useState(null);
   const [userOptions, setUserOptions] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -186,27 +190,34 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
   // and other rows stay clickable.
   const [pdfGeneratingId, setPdfGeneratingId] = useState(null);
 
+  
+  const [autoExportPdfPending, setAutoExportPdfPending] = useState(false);
+
   const downloadReport = async (report, vessel) => {
     const reportKey = report.report_id || report.id;
     setPdfGeneratingId(reportKey);
-    try {
-      await generateReport({
-        input: report?.input || {},
-        output: report?.output || report,
-        vesselName: vessel?.vesselName || report?.input?.vessel?.vessel_name || 'Report',
-        // No chart canvases are on screen from this modal (it's opened from
-        // the vessel list, not the simulation workspace) — generateReport
-        // skips any chart it can't find and still renders every table/KPI
-        // page from the report's own data.
-        chartRefs: {},
-        filename: `${vessel?.vesselName || 'Report'}_${reportKey || 'ESD_Report'}.pdf`,
-      });
-    } catch (e) {
-      console.error('PDF error:', e);
-      alert('PDF generation failed: ' + e.message);
-    } finally {
-      setPdfGeneratingId(null);
+    setReportsModalOpen(false);
+
+    // Fetch the full report (report list entries are often summaries) —
+    // same as confirmSession() does when opening the simulator normally.
+    let fullReport = report;
+    if (report?.report_id) {
+      try {
+        const fullReportResult = await simulationAPI.getReport(report.report_id);
+        if (fullReportResult.success) {
+          fullReport = fullReportResult.data?.data || fullReportResult.data || report;
+        }
+      } catch (err) {
+        console.warn('Could not fetch full report for PDF export:', err.message);
+      }
     }
+
+    setSimulatingId(vessel.id);
+    setSessionMode('last');
+    setVesselReports([fullReport]);
+    setInitialReport(fullReport);
+    setAutoExportPdfPending(true);
+    setActiveTab('simulator');
   };
 
   const simulateFromReport = async (report, vessel) => {
@@ -250,7 +261,10 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     try { localStorage.removeItem(DRAFT_STORAGE_KEY); } catch (e) { }
   };
 
- 
+  // Lazily fetches the assignable-user list the first time the "Assign to
+  // user" dropdown is opened, so it isn't called on every render/re-open.
+  // Pass { force: true } to refetch even if already loaded (used right
+  // before saving, to resolve against the freshest data).
   const loadUsersIfNeeded = async ({ force = false } = {}) => {
     if (!force && (usersLoaded || usersLoading)) return userOptions;
     setUsersLoading(true);
@@ -403,13 +417,11 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
 
 
   const loadVessels = async () => {
-    console.log('[loadVessels] Starting API call...');
     setVesselsLoading(true);
     setVesselsError(null);
 
     try {
       const result = await vesselAPI.getAll();
-      console.log('[loadVessels] API result:', result);
 
       if (!result.success) {
         setVesselsError(result.error);
@@ -419,7 +431,6 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
       const raw = result.data?.data || result.data;
       const vesselList = Array.isArray(raw) ? raw
         : raw?.vessels || raw?.results || [];
-      console.log('[loadVessels] Parsed', vesselList.length, 'vessels');
 
       setVessels(
         vesselList.map((item, index) =>
@@ -448,17 +459,13 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
 
 
       if (!result.success) {
-        console.log(result.error);
         return;
       }
 
       const data = result.data.data;
 
       setSimulationData(data);
-      // NOTE: intentionally NOT calling setSelectedEsds here — that state
-      // belongs solely to the onboarding form's ESD checklist. Writing this
-      // vessel's recommended measures into it was leaking into the "+ Onboard
-      // Vessel" form the next time it was opened.
+     
 
     } catch (err) {
       console.log(err);
@@ -471,7 +478,11 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     }
     setOnboardLoading(true);
 
-  
+    // Always re-fetch the user list right before saving — not just when a
+    // user was already selected — so the assigned user's id is resolved
+    // against the freshest data regardless of whether the "Assign To"
+    // dropdown was ever opened this session. Re-matched by email since
+    // that's stable even if the numeric id were to change.
     const freshUsers = await loadUsersIfNeeded({ force: true });
     let resolvedAssignedUserId = assignedUserId;
     if (assignedUserId != null) {
@@ -563,7 +574,6 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         const existingVessel = vessels.find(v => v.imoNumber === formData.imoNumber);
         if (existingVessel?.id) {
           await simulationAPI.deleteReports(existingVessel.id);
-          console.log('Existing reports deleted for vessel:', existingVessel.id);
         }
       }
 
@@ -583,7 +593,6 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         try {
           const simResult = await simulationAPI.simulate(payload, payload.esd_measures || [], payload.vessel_life_years, payload.discount_rate);
           if (simResult.success) {
-            console.log('Base report created:', simResult.data?.data?.report_id || simResult.data?.report_id);
           } else {
             console.warn('Auto-simulate failed (base report not created):', simResult.error);
           }
@@ -618,15 +627,10 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     const vessel = vessels.find(v => v.id === vesselId);
     if (!window.confirm(`Delete "${vessel?.vesselName || 'this vessel'}" and all its reports?\n\nThis cannot be undone.`)) return;
     try {
-      // 1. Delete all reports for this vessel
       await simulationAPI.deleteReports(vesselId);
-      // 2. Delete the vessel itself
       const result = await makeRequest('POST', '/home/delete-vessel/', { vessel_id: vesselId });
-      console.log('[deleteVessel] Result:', result);
-      // 3. Refresh vessel list from API
       await loadVessels();
     } catch (err) {
-      console.error('[deleteVessel] Error:', err);
       alert('Failed to delete vessel: ' + (err.response?.data?.message || err.message));
     }
   };
@@ -875,15 +879,33 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
 
       {/* ===== SIMULATOR — rendered outside container for full width ===== */}
       {activeTab === 'simulator' && (
-        <SimulationWorkspace
-          vesselId={simulatingId}
-          vesselName={getSimulatingVessel()?.vesselName}
-          sessionMode={sessionMode}
-          initialReport={initialReport}
-          isOnlyReport={vesselReports.length === 1}
-          vesselReports={vesselReports}
-          onBack={() => setActiveTab('vessels')}
- isAdmin={isAdmin}         />
+        <>
+          {autoExportPdfPending && (
+            <div style={{
+              position: 'fixed', top: 12, left: '50%', transform: 'translateX(-50%)',
+              zIndex: 2000, background: '#1E3A5F', color: '#fff', padding: '8px 16px',
+              borderRadius: 8, fontSize: 12, fontWeight: 500, boxShadow: '0 4px 12px rgba(0,0,0,.2)',
+            }}>
+              ⏳ Generating your PDF report… you'll be returned automatically
+            </div>
+          )}
+          <SimulationWorkspace
+            vesselId={simulatingId}
+            vesselName={getSimulatingVessel()?.vesselName}
+            sessionMode={sessionMode}
+            initialReport={initialReport}
+            isOnlyReport={vesselReports.length === 1}
+            vesselReports={vesselReports}
+            onBack={() => setActiveTab('vessels')}
+            isAdmin={isAdmin}
+            autoExportPdf={autoExportPdfPending}
+            onAutoExportDone={() => {
+              setAutoExportPdfPending(false);
+              setPdfGeneratingId(null);
+              setActiveTab('vessels');
+            }}
+          />
+        </>
       )}
 
       {/* Main Content (vessels page only) */}
@@ -1097,7 +1119,13 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                         <td style={{ padding: '8px', color: 'var(--ink3)' }}>{report.created_at ? new Date(report.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</td>
                         <td style={{ padding: '8px', textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                           
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              disabled={pdfGeneratingId === (report.report_id || report.id)}
+                              onClick={() => downloadReport(report, reportsVessel)}
+                            >
+                              {pdfGeneratingId === (report.report_id || report.id) ? '⏳ Generating…' : '⬇ Download'}
+                            </button>
                             <button className="btn btn-primary btn-sm" onClick={() => simulateFromReport(report, reportsVessel)}>⚙️ Simulate</button>
                           </div>
                         </td>
