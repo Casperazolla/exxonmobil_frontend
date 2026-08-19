@@ -6,6 +6,63 @@ import { generateReport } from '../utils/pdfExport';
 // =====================================================================
 // HELPERS
 // =====================================================================
+// Resolves whatever the backend stored for a vessel's cover photo into a
+// base64 data URL that jsPDF can embed directly. Handles either shape:
+// already a data: URL (what the onboarding form uploads today), or a
+// remote URL (e.g. an S3 link) that needs fetching + converting first.
+//
+// Checks several plausible locations because we don't yet know which one
+// (if any) the backend actually echoes back — logs what it checked so this
+// is diagnosable from the browser console rather than failing silently.
+function findVesselImageRaw({ reportData, vesselMeta, vessel }) {
+  const candidates = [
+    ['vessel.vessel_image_base64', vessel?.vessel_image_base64],
+    ['vessel.vessel_image', vessel?.vessel_image],
+    ['vessel.image_url', vessel?.image_url],
+    ['vessel.vessel_image_url', vessel?.vessel_image_url],
+    ['reportData.input.vessel_image_base64', reportData?.input?.vessel_image_base64],
+    ['reportData.input.vessel_image', reportData?.input?.vessel_image],
+    ['reportData.output.vessel_image_base64', reportData?.output?.vessel_image_base64],
+    ['reportData.vessel_image_base64', reportData?.vessel_image_base64],
+    ['vesselMeta.vessel_image_base64', vesselMeta?.vessel_image_base64],
+    ['vesselMeta.vessel.vessel_image_base64', vesselMeta?.vessel?.vessel_image_base64],
+    ['vesselMeta.vessel_image', vesselMeta?.vessel_image],
+    ['vesselMeta.image_url', vesselMeta?.image_url],
+  ];
+  const found = candidates.find(([, val]) => !!val);
+  if (found) {
+    console.log(`[PDF export] Vessel image found at "${found[0]}"`);
+    return found[1];
+  }
+  console.warn(
+    '[PDF export] No vessel image field found on the report/vessel data. Checked:',
+    candidates.map(([path]) => path),
+    '\nIf you uploaded a photo when onboarding this vessel, this means the backend is not ' +
+    'persisting/returning it on this endpoint — check the Network tab response for the report ' +
+    'or vessel-meta request and see which field (if any) actually comes back.'
+  );
+  return null;
+}
+
+async function resolveVesselImageB64(ctx) {
+  const raw = findVesselImageRaw(ctx);
+  if (!raw) return null;
+  if (raw.startsWith('data:image')) return raw;
+  try {
+    const res = await fetch(raw);
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.warn('Could not load vessel image for PDF:', e.message);
+    return null;
+  }
+}
+
 const fmt$ = (n) => {
   if (n == null) return '—';
   const abs = Math.abs(n);
@@ -1112,14 +1169,17 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
   useEffect(() => {
     (async () => {
       setLoading(true); setError(null);
-     
+
+      // ── ALL data comes from the report selected in session modal ──
+      // initialReport is fetched by Tracker.confirmSession() via GET /simulation/report/?report_id=X
       if (initialReport) {
         const inp = initialReport.input || initialReport;
 
         populateSidebar(inp);
         setReportId(initialReport.report_id || null);
 
-       
+        // "Latest" mode → show the report output immediately
+        // "Base" mode → only load inputs, user clicks Run Simulation for new report
         if ((sessionMode === 'last' || isOnlyReport) && initialReport.output) {
           setReportData(initialReport);
         }
@@ -1223,14 +1283,19 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
   const grade    = out?.cii?.graph1_baseline?.[0]?.grade;
   const v        = inp.vessel||vesselMeta?.vessel||{};
 
- 
+  // Shared PDF export logic — used by the manual "PDF Report" button and by
+  // the auto-export flow (triggered when opened from the Reports list
+  // "Download PDF" action, which needs the real chart canvases below to
+  // exist and finish drawing before it can capture them).
   const exportPdf = async () => {
     setPdfLoading(true);
     try {
+      const vesselImageB64 = await resolveVesselImageB64({ reportData, vesselMeta, vessel: v });
       await generateReport({
         input: reportData?.input || {},
         output: reportData?.output || reportData,
         vesselName: v.vessel_name || vesselName || 'Report',
+        vesselImageB64,
         chartRefs: {
           cash: document.querySelector('canvas[data-chart-id="cash"]'),
           opex: document.querySelector('canvas[data-chart-id="opex"]'),
@@ -1407,23 +1472,7 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
             {feuP.compliant===false&&<span style={{padding:'3px 8px',borderRadius:10,fontSize:9,fontWeight:600,background:'#FEE2E2',color:'var(--red)'}}>FuelEU Non-Compliant</span>}
             {grade&&<span style={{padding:'3px 8px',borderRadius:10,fontSize:9,fontWeight:600,background:'var(--gl)',color:'var(--green)'}}>CII Grade {grade}</span>}
             {reportData && (
-              <button className="btn btn-secondary btn-sm" disabled={pdfLoading} onClick={async()=>{
-                setPdfLoading(true);
-                try{
-                  await generateReport({
-                    input: reportData?.input || {},
-                    output: reportData?.output || reportData,
-                    vesselName: v.vessel_name || vesselName || 'Report',
-                    chartRefs: {
-                      cash: document.querySelector('canvas[data-chart-id="cash"]'),
-                      opex: document.querySelector('canvas[data-chart-id="opex"]'),
-                      overview: document.querySelector('canvas[data-chart-id="overview"]'),
-                    },
-                    filename: `${v.vessel_name||vesselName||'Report'}_ESD_Report.pdf`,
-                  });
-                } catch(e){console.error('PDF error:',e);alert('PDF generation failed: '+e.message);}
-                finally{setPdfLoading(false);}
-              }}>
+              <button className="btn btn-secondary btn-sm" disabled={pdfLoading} onClick={exportPdf}>
                 <i className={`ti ${pdfLoading?'ti-loader-2':'ti-file-download'}`}></i>
                 {pdfLoading ? ' Generating...' : ' PDF Report'}
               </button>

@@ -158,6 +158,12 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
   const [userOptions, setUserOptions] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersLoaded, setUsersLoaded] = useState(false);
+  // Vessel cover photo for the PDF report — kept separate from formData
+  // (like ESDs/assignee above) so it's never written into the localStorage
+  // draft (base64 images are large) and always resets on a fresh form.
+  const [vesselImageBase64, setVesselImageBase64] = useState(null);
+  const [vesselImageFileName, setVesselImageFileName] = useState(null);
+  const [vesselImageError, setVesselImageError] = useState(null);
   const [vesselsLoading, setVesselsLoading] = useState(true);
   const [vesselsError, setVesselsError] = useState(null);
   const [simulationData, setSimulationData] = useState(null);
@@ -190,7 +196,9 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
   // and other rows stay clickable.
   const [pdfGeneratingId, setPdfGeneratingId] = useState(null);
 
-  
+  // True while a "Download PDF" click is quietly loading the report into the
+  // simulator in the background so its CII / financial charts can render
+  // before generateReport() captures them.
   const [autoExportPdfPending, setAutoExportPdfPending] = useState(false);
 
   const downloadReport = async (report, vessel) => {
@@ -257,8 +265,37 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     setSelectedEsds([]);
     setAssignedUserId(null);
     setAssignedUserEmail(null);
+    setVesselImageBase64(null);
+    setVesselImageFileName(null);
+    setVesselImageError(null);
     setEditingId(null);
     try { localStorage.removeItem(DRAFT_STORAGE_KEY); } catch (e) { }
+  };
+
+  // Reads a selected image file, downsizes it if needed, and stores it as a
+  // base64 data URL — this goes straight into the onboard payload and later
+  // gets embedded on the PDF report's cover page.
+  const MAX_VESSEL_IMAGE_MB = 5;
+  const handleVesselImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+    setVesselImageError(null);
+    if (!file.type.startsWith('image/')) {
+      setVesselImageError('Please choose an image file (PNG or JPG).');
+      return;
+    }
+    if (file.size > MAX_VESSEL_IMAGE_MB * 1024 * 1024) {
+      setVesselImageError(`Image is too large — please choose one under ${MAX_VESSEL_IMAGE_MB}MB.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setVesselImageBase64(reader.result);
+      setVesselImageFileName(file.name);
+    };
+    reader.onerror = () => setVesselImageError('Could not read that image — please try again.');
+    reader.readAsDataURL(file);
   };
 
   // Lazily fetches the assignable-user list the first time the "Assign to
@@ -290,12 +327,16 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         setEditingId(vesselId);
       }
     } else {
-      // Opening a fresh "+ Onboard Vessel" form — ESD selections and the
-      // assigned user must never carry over from a previous session (whether
-      // that session was saved, or just closed without saving).
+      // Opening a fresh "+ Onboard Vessel" form — ESD selections, the
+      // assigned user, and any staged vessel photo must never carry over
+      // from a previous session (whether that session was saved, or just
+      // closed without saving).
       setSelectedEsds([]);
       setAssignedUserId(null);
       setAssignedUserEmail(null);
+      setVesselImageBase64(null);
+      setVesselImageFileName(null);
+      setVesselImageError(null);
       setEditingId(null);
     }
     setModalOpen(true);
@@ -459,16 +500,20 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
 
 
       if (!result.success) {
+        console.warn('Could not load simulation data:', result.error);
         return;
       }
 
       const data = result.data.data;
 
       setSimulationData(data);
-     
+      // NOTE: intentionally NOT calling setSelectedEsds here — that state
+      // belongs solely to the onboarding form's ESD checklist. Writing this
+      // vessel's recommended measures into it was leaking into the "+ Onboard
+      // Vessel" form the next time it was opened.
 
     } catch (err) {
-      console.log(err);
+      console.warn('Could not load simulation data:', err);
     }
   };
   const saveVessel = async () => {
@@ -515,6 +560,8 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
         imo_number: formData.imoNumber,
         gross_tonnage: parseFloat(formData.grossTonnage) || 0,
         dead_weight: parseFloat(formData.deadWeight) || 0,
+        // TODO: confirm this is the exact field name the backend expects.
+        vessel_image_base64: vesselImageBase64 || undefined,
       },
 
       voyage_meta: {
@@ -565,7 +612,6 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
       assign_to_user_id: resolvedAssignedUserId || undefined,
     };
 
-
     try {
 
       // Step 1: Delete existing reports for this vessel (if re-onboarding)
@@ -592,8 +638,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
       if (newVesselId) {
         try {
           const simResult = await simulationAPI.simulate(payload, payload.esd_measures || [], payload.vessel_life_years, payload.discount_rate);
-          if (simResult.success) {
-          } else {
+          if (!simResult.success) {
             console.warn('Auto-simulate failed (base report not created):', simResult.error);
           }
         } catch (simErr) {
@@ -627,10 +672,14 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     const vessel = vessels.find(v => v.id === vesselId);
     if (!window.confirm(`Delete "${vessel?.vesselName || 'this vessel'}" and all its reports?\n\nThis cannot be undone.`)) return;
     try {
+      // 1. Delete all reports for this vessel
       await simulationAPI.deleteReports(vesselId);
-      const result = await makeRequest('POST', '/home/delete-vessel/', { vessel_id: vesselId });
+      // 2. Delete the vessel itself
+      await makeRequest('POST', '/home/delete-vessel/', { vessel_id: vesselId });
+      // 3. Refresh vessel list from API
       await loadVessels();
     } catch (err) {
+      console.error('[deleteVessel] Error:', err);
       alert('Failed to delete vessel: ' + (err.response?.data?.message || err.message));
     }
   };
@@ -838,7 +887,6 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
     groupedEsds[key].push(esd);
   });
 
-  console.log(vessels);
   return (
     <div className="tracker-wrapper">
       {/* Navigation */}
@@ -1124,7 +1172,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                               disabled={pdfGeneratingId === (report.report_id || report.id)}
                               onClick={() => downloadReport(report, reportsVessel)}
                             >
-                              {pdfGeneratingId === (report.report_id || report.id) ? '⏳ Generating…' : '⬇ Download'}
+                              {pdfGeneratingId === (report.report_id || report.id) ? '⏳ Generating…' : '⬇ Download PDF'}
                             </button>
                             <button className="btn btn-primary btn-sm" onClick={() => simulateFromReport(report, reportsVessel)}>⚙️ Simulate</button>
                           </div>
@@ -1170,6 +1218,58 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
               </button>
             </div>
             <div className="modal-body">
+              <div className="onboard-card">
+                <div className="onboard-title">
+                  🖼️ Vessel Photo
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 8 }}>
+                  Shown on the cover page of the PDF report for this vessel.
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {vesselImageBase64 ? (
+                    <img
+                      src={vesselImageBase64}
+                      alt="Vessel preview"
+                      style={{ width: 96, height: 64, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border2)' }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 96, height: 64, borderRadius: 6, border: '1px dashed var(--border2)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 9, color: 'var(--ink3)', textAlign: 'center', padding: 4,
+                    }}>
+                      No photo
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', width: 'fit-content' }}>
+                      {vesselImageBase64 ? 'Replace Image' : '⬆ Upload Image'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleVesselImageSelect}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                    {vesselImageFileName && (
+                      <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{vesselImageFileName}</span>
+                    )}
+                    {vesselImageBase64 && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{ width: 'fit-content', color: 'var(--red)' }}
+                        onClick={() => { setVesselImageBase64(null); setVesselImageFileName(null); }}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {vesselImageError && (
+                  <div style={{ fontSize: 10, color: 'var(--red)', marginTop: 6 }}>{vesselImageError}</div>
+                )}
+              </div>
               <div className="onboard-card">
                 <div className="form-section">
                   <div className="form-section-title">📅 Analysis Period</div>
@@ -1887,7 +1987,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                   allowClear
                   placeholder="Select a user to assign this vessel to"
                   style={{ width: '100%' }}
-                  value={assignedUserId || undefined}
+                  value={assignedUserId ?? null}
                   loading={usersLoading}
                   filterOption={(input, option) =>
                     (option?.label ?? '').toLowerCase().includes(input.toLowerCase())

@@ -83,7 +83,6 @@ export const authAPI = {
     // Unwrap it so callers always get { user, access, refresh } directly.
     const d = raw?.data && (raw.data.user || raw.data.access) ? raw.data : raw;
     const token = d?.access || d?.token;
-    console.log('Login response:', { hasToken: !!token, hasUser: !!d?.user, role: d?.user?.role });
     if (token) {
       localStorage.setItem('Authorization', token);
     } else {
@@ -106,9 +105,7 @@ export const authAPI = {
 export const vesselAPI = {
   getAll: async () => {
     try {
-      console.log('[getAll] GET /home/list-vessels/');
       const data = await makeRequest('GET', '/home/list-vessels/');
-      console.log(data);
       return { success: true, data };
     } catch (error) {
       return { success: false, error: error.response?.data?.message || error.message };
@@ -183,6 +180,10 @@ export const simulationAPI = {
           imo_number:             simulationData.vessel?.imo_number             || '',
           gross_tonnage:          simulationData.vessel?.gross_tonnage          || 0,
           dead_weight:            simulationData.vessel?.dead_weight            || 0,
+          // TODO: confirm this is the exact field name the backend expects —
+          // forwarded through as-is (this function otherwise hand-picks known
+          // fields, so anything not listed here gets silently dropped).
+          vessel_image_base64:    simulationData.vessel?.vessel_image_base64    || undefined,
         },
         voyage_meta: {
           analysis_month:              simulationData.voyage_meta?.analysis_month              || 10,
@@ -235,7 +236,6 @@ export const simulationAPI = {
         ? { vessel_id: vesselId, input: inputPayload }
         : inputPayload;  // fallback: send flat (backend will use IMO lookup)
  
-      console.log('[simulate] POST /simulation/simulate-vessel/', { vessel_id: vesselId, hasInput: !!inputPayload });
       const data = await makeRequest('POST', '/simulation/simulate-vessel/', payload);
       return { success: true, data };
     } catch (error) {
@@ -285,5 +285,3 @@ export const simulationAPI = {
 };
  
 export { api, makeRequest };
- 
- 

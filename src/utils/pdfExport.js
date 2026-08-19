@@ -1,18 +1,6 @@
-/**
- * pdfExport.js — Azolla ESD Platform — Professional PDF Report v3
- * Hybrid approach:
- *   - Cover, tables, KPIs: jsPDF native with professional styling
- *   - Charts: direct canvas capture (sim-g1..g4, data-chart-id attrs)
- *
- * CDN (public/index.html before </body>):
- *   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
- */
 
-// ── Page dimensions ──────────────────────────────────────────────────────
 const PW = 210, PH = 297, M = 14, CW = PW - M * 2;
-// Reserved whitespace at the bottom of every page, above the footer/page
-// number. Nothing — table rows, charts, sections — should ever be drawn
-// below (PH - BM). Change this one value to retune spacing everywhere.
+
 const BM = 20;
 const CONTENT_BOTTOM = PH - BM;
 
@@ -204,7 +192,7 @@ function table(p, heads, rows, y, ws, opts = {}) {
   p.rect(X, y, W, 9, 'F');
   p.setFontSize(fontSize - 0.5); p.setFont('helvetica', 'bold');
   p.setTextColor(C.white);
-  let x = X + 0.5;
+  let x = X + 2;
   heads.forEach((h, i) => {
     const align = i === 0 ? 'left' : 'right';
     const tx = align === 'right' ? x + cw[i] - 2 : x;
@@ -223,7 +211,7 @@ function table(p, heads, rows, y, ws, opts = {}) {
       p.rect(X, y, W, rowH, 'F');
     }
     p.setTextColor(C.black);
-    x = X + 0.5;
+    x = X + 2;
     row.forEach((cell, ci) => {
       const align = ci === 0 ? 'left' : 'right';
       const tx = align === 'right' ? x + cw[ci] - 2 : x;
@@ -272,45 +260,6 @@ function addChart(p, img, x, y, w, h) {
 // ════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT FUNCTION
 // ════════════════════════════════════════════════════════════════════════
-
-
-const VESSEL_IMAGE_URLS = {
-  "Bochem London":
-    "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/bochem_london_clean.png",
-
-  "Prachi":
-    "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/prachi_clean.png",
-
-  "Tenjun":
-    "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/tenjun_clean.png",
-};
-
-async function fetchImageAsDataURL(url) {
-  if (!url) return null;
-
-  try {
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new Error(`Image request failed: ${response.status}`);
-    }
-
-    const blob = await response.blob();
-
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = reject;
-
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.warn("Failed to load vessel image:", error);
-    return null;
-  }
-}
-
 export async function generateReport(opts) {
   const { jsPDF } = window.jspdf;
   if (!jsPDF) { alert('jsPDF not loaded — add CDN to index.html'); return; }
@@ -321,20 +270,7 @@ export async function generateReport(opts) {
   const mch = input?.machines || [];
   const esds = input?.esd_measures || [];
   const imo = v.imo_number || '';
- const name = vesselName || v.vessel_name || 'Vessel';
-
-const vesselKey = String(name).trim().toLowerCase();
-
-const vesselImageUrl =
-  VESSEL_IMAGE_URLS[
-    Object.keys(VESSEL_IMAGE_URLS).find(
-      key => key.toLowerCase() === vesselKey
-    )
-  ];
-
-
-
-const vesselImageB64 = await fetchImageAsDataURL(vesselImageUrl);
+  const name = vesselName || v.vessel_name || 'Vessel';
 
   const esd = output?.esd || {};
   const esdR = esd.esd_results || [];
@@ -405,46 +341,29 @@ const vesselImageB64 = await fetchImageAsDataURL(vesselImageUrl);
   p.setDrawColor('#1B2A4A'); p.setLineWidth(1.5);
   p.line(tX, 76, tX + 42, 76);
 
-const imgX = tX;
-const imgY = 82;
-const imgW = CW;
-const imgH = 78;
-
-// Background placeholder
-p.setFillColor('#E2E8F0');
-p.roundedRect(imgX, imgY, imgW, imgH, 2, 2, 'F');
-
-// Add vessel-specific image
-if (vesselImageB64) {
-  try {
-    p.addImage(
-      vesselImageB64,
-      'PNG',
-      imgX,
-      imgY,
-      imgW,
-      imgH,
-      '',
-      'FAST'
-    );
-  } catch (e) {
-    console.warn('Could not add vessel image to PDF:', e);
+  // ── Vessel image (or placeholder if none was provided) ──
+  const imgX = tX, imgY = 82, imgW = CW, imgH = 78;
+  let vesselImageDrawn = false;
+  if (opts.vesselImageB64) {
+    // jsPDF needs the actual format ('JPEG'/'PNG'/'WEBP') to match the real
+    // data — it was previously hardcoded to 'JPEG', which silently failed
+    // (swallowed by an empty catch) for any PNG upload, the common case.
+    const mimeMatch = /^data:image\/(\w+);base64,/i.exec(opts.vesselImageB64);
+    const fmt = (mimeMatch?.[1] || 'PNG').toUpperCase().replace('JPG', 'JPEG');
+    try {
+      p.addImage(opts.vesselImageB64, fmt, imgX, imgY, imgW, imgH, '', 'FAST');
+      vesselImageDrawn = true;
+    } catch (e) {
+      console.warn('[PDF export] Could not draw vessel image (format tried:', fmt, ')', e);
+    }
   }
-} else {
-  p.setFillColor('#CBD5E1');
-  p.roundedRect(imgX, imgY, imgW, imgH, 2, 2, 'D');
-
-  p.setFontSize(8);
-  p.setFont('helvetica', 'italic');
-  p.setTextColor('#94A3B8');
-
-  p.text(
-    'Vessel image unavailable',
-    imgX + imgW / 2,
-    imgY + imgH / 2,
-    { align: 'center' }
-  );
-}
+  if (!vesselImageDrawn) {
+    p.setFillColor('#E2E8F0'); p.roundedRect(imgX, imgY, imgW, imgH, 2, 2, 'F');
+    p.setFillColor('#CBD5E1'); p.roundedRect(imgX, imgY, imgW, imgH, 2, 2, 'D');
+    p.setFontSize(8); p.setFont('helvetica', 'italic'); p.setTextColor('#94A3B8');
+    p.text('Vessel image', imgX + imgW / 2, imgY + imgH / 2 - 2, { align: 'center' });
+    p.text('(pass vesselImageB64 to show photo)', imgX + imgW / 2, imgY + imgH / 2 + 5, { align: 'center' });
+  }
 
   // ── Bottom section: vessel name left, TOC right ──
   const botY = imgY + imgH + 10;
@@ -488,7 +407,7 @@ if (vesselImageB64) {
   // ── Logo bottom left ──
   const logoY = PH - 24;
   try {
-    p.addImage(LOGO_B64, 'JPEG', tX, logoY, 30, 15);
+    p.addImage(LOGO_B64, 'JPEG', tX, logoY, 38, 14);
   } catch (e) {
     p.setFontSize(10); p.setFont('helvetica', 'bold'); p.setTextColor('#1B2A4A');
     p.text('azolla', tX, logoY + 10);
@@ -530,17 +449,14 @@ if (vesselImageB64) {
   p.setDrawColor(C.border); p.setLineWidth(0.2); p.line(M, y, PW - M, y);
   y += 12;
 
- 
-
-  y = secTitle(p, 'Fuel Consumption', y += 10);
-
-   y = kpiRow(p, [
+  y = kpiRow(p, [
     { label: 'Total fuel consumption', value: fmtN(totC, 0) + ' MT /YR', color: C.black, accent: C.navy },
     { label: 'Total fuel cost', value: fmt$(totCost) + ' /YR', color: C.amber, accent: C.amber },
     { label: 'EU compliance cost', value: fmt$(pen.total_eu_compliance_cost_usd) + ' /YR', color: C.red, accent: C.red },
     { label: 'Machines', value: String(mch.length), color: C.black, accent: C.slate },
   ], y);
 
+  y = secTitle(p, 'Fuel Consumption', y += 10);
   const fuelRows = mch.flatMap(m => m.fuel_particulars.map(fp => [
     m.machine_name, fp.fuel_name,
     fmtN(fp.consumption_mt, 2),
@@ -551,14 +467,7 @@ if (vesselImageB64) {
   y = table(p, ['Machine', 'Fuel', 'MT / YR', 'Price (USD/MT)', 'Annual cost'], fuelRows, y, [40, 20, 22, 24, 26]);
   y += 10;
 
-  
-
-  // Quick-read KPI cards — placed BELOW fuel consumption, at the end of the page
-
-
-  // ═══ PAGE 3 — ESD PERFORMANCE ═════════════════════════════════════════
-  // This page only: content starts from the extreme left (small margin)
-  // instead of the standard M — every other page keeps the normal margin.
+ 
   p.addPage();
   y = 10;
   const P3X = 2;                  // extreme-left margin, page 3 only (near page edge)
@@ -582,18 +491,15 @@ if (vesselImageB64) {
     e.payback_with_ets_years ? e.payback_with_ets_years.toFixed(1) + ' YR' : '—',
   ]);
   y = table(p, ['#', 'ESD Technology', 'Install', 'Lead', 'Eff%', 'Cost', 'Savings /YR', 'Payback'],
-    eRows, y += 18, [6, 46, 15, 12, 12, 22, 22, 15], { x: P3X, width: P3W });
+    eRows, y, [6, 46, 15, 12, 12, 22, 22, 15], { x: P3X, width: P3W });
 
   if (tl.length && y < CONTENT_BOTTOM - 30) {
-    y += 10; y = secTitle(p, 'Implementation Timeline', y += 8, C.navy, P3X);
+    y += 10; y = secTitle(p, 'Implementation Timeline', y, C.navy, P3X);
     const tlRows = tl.map(t => [t.implementation_label, displayTechName(t.name), t.installation_req?.replace('_', '-'), '+' + t.saving_pct + '%']);
-    y = table(p, ['Date', 'ESD', 'Type', 'Saving%'], tlRows, y += 6, [22, 68, 20, 14], { x: P3X, width: P3W });
+    y = table(p, ['Date', 'ESD', 'Type', 'Saving%'], tlRows, y, [22, 68, 20, 14], { x: P3X, width: P3W });
   }
 
-  // Payback sensitivity table — exact shape confirmed from backend
-  // Structure: payback_sensitivity.fuel_type_ranges[fuelType] = prices[]
-  //            payback_sensitivity.esd_sensitivity[].tech_name / payback_by_case / current_payback_with_eu
-  //            payback_sensitivity.overall_payback_by_case[]
+ 
   const pbSens = esd.payback_sensitivity || null;
 
   if (pbSens) {
@@ -606,7 +512,45 @@ if (vesselImageB64) {
     const pbOverall = pbSens.overall_payback_by_case || [];
     const pbCurrent = pbSens.overall_current_payback;
 
-   
+    if (pbPrices.length && esdSens.length && y < CONTENT_BOTTOM - 30) {
+      y += 10;
+      y = secTitle(p, 'Payback Period - Fuel Price Sensitivity (yrs)', y += 10, C.navy, P3X);
+
+      // Find the index of current price in the price list to mark it
+      const currPrice = activeFuel ? (pbSens.current_fuel_prices?.[activeFuel] || null) : null;
+      const currIdx = currPrice != null ? pbPrices.indexOf(currPrice) : -1;
+
+      // Build headers: #, ESD, price1, price2..., Current
+      const sensHeaders = ['#', 'ESD Technology',
+        ...pbPrices.map((pr, i) => (i === currIdx ? '*$' + pr : '$' + pr)),
+        'Current'];
+
+      // Build ESD rows
+      const sensRows = esdSens.map((e, i) => [
+        i + 1,
+        displayTechName(e.tech_name) || '?',
+        ...(e.payback_by_case || []).map(pb => pb != null ? Number(pb).toFixed(1) : '-'),
+        e.current_payback_with_eu != null ? Number(e.current_payback_with_eu).toFixed(1) : '-',
+      ]);
+
+      // Overall row at bottom
+      if (pbOverall.length) {
+        sensRows.push([
+          '', 'Overall (Investment / Savings)',
+          ...pbOverall.map(pb => pb != null ? Number(pb).toFixed(1) : '-'),
+          pbCurrent != null ? Number(pbCurrent).toFixed(1) : '-',
+        ]);
+      }
+
+      // Column widths: 13 price cols + Current = 14 numeric cols
+      // P3W is the widened (extreme-left) content width for this page
+      const nameW = 40;
+      const numCols = pbPrices.length + 1;  // +1 for Current column
+      const colW = Math.max(7, Math.floor((P3W - 6 - nameW) / numCols));
+      const sensWidths = [6, nameW, ...Array(numCols).fill(colW)];
+
+      y = table(p, sensHeaders, sensRows, y += 10, sensWidths, { fontSize: 5.5, rowH: 5, x: P3X, width: P3W });
+    }
   }
 
 
@@ -618,16 +562,7 @@ if (vesselImageB64) {
   y = secTitle(p, 'CII Strategy', y);
   y += 2;
 
-  // Layout:
-  //   Row 1 (top):    G1 Baseline  ||  G3 ESD Rollout   — side by side, narrower height
-  //   Row 2 (middle): G2 Sailing Scenarios               — full width, taller
-  //   Row 3 (bottom): G4 Sailing + ESD Combined          — full width, taller
-  //
-  // Available height after heading: 297 - 26 = 271mm
-  // Row1: label(5) + chart(65) = 70mm
-  // Row2: label(5) + chart(80) = 85mm
-  // Row3: label(5) + chart(80) = 85mm
-  // Gaps: 3+3 = 6mm   Total: 70+85+85+6 = 246mm ✓
+ 
 
   const colGap = 5;
   const halfW = (CW - colGap) / 2;
@@ -666,7 +601,7 @@ if (vesselImageB64) {
     { label: 'Total EU compliance', value: fmt$(pen.total_eu_compliance_cost_usd) + ' /YR', color: C.red, accent: C.red },
     { label: 'EUA cost', value: fmt$(eua.total_eua_cost_usd) + ' /YR', color: C.amber, accent: C.amber },
     { label: 'FuelEU penalty', value: fmt$(feu.penalty_usd) + ' /YR', color: feu.compliant ? C.green : C.red, accent: C.navy },
-  ], y += 10);
+  ], y);
 
   // GHG intensity as clean table
   y = table(p,
@@ -676,11 +611,11 @@ if (vesselImageB64) {
       ['TTW (Tank-to-Wake)', feu.ghg_intensity_ttw?.toFixed(4) || '—', '', ''],
       ['Total GHG intensity', feu.ghg_intensity_total?.toFixed(4) || '—', feu.ghg_target?.toFixed(4) || '—', feu.compliant ? 'COMPLIANT' : 'NON-COMPLIANT'],
     ],
-    y += 10, [55, 40, 40, 37]
+    y, [55, 40, 40, 37]
   );
   y += 11;
 
-  y = secTitle(p, 'Year-by-Year Projection', y += 10);
+  y = secTitle(p, 'Year-by-Year Projection', y);
   const yrRows = yearly.map(r => [
     r.year, r.active_months + ' MO',
     r.target?.toFixed(2), r.vessel_ghg?.toFixed(4),
@@ -689,18 +624,18 @@ if (vesselImageB64) {
     fmt$(r.esd_fuel_savings_usd), fmt$(r.esd_eua_savings_usd), fmt$(r.esd_fueleu_savings_usd),
   ]);
   y = table(p, ['Year', 'MO', 'Target', 'GHG', 'Excess', 'FuelEU', 'EUA', 'ESD Fuel', 'ESD EUA', 'ESD FEU'],
-    yrRows, y += 10, [12, 10, 16, 18, 16, 20, 20, 20, 18, 18], { fontSize: 6.5, rowH: 5.5 });
+    yrRows, y, [12, 10, 16, 18, 16, 20, 20, 20, 18, 18], { fontSize: 6.5, rowH: 5.5 });
 
   // ═══ PAGE 6 — FINANCIALS ══════════════════════════════════════════════
   p.addPage();
   y = 10;
-  y = secTitle(p, 'Financial Analysis', y += 6);
+  y = secTitle(p, 'Financial Analysis', y);
 
   y = kpiRow(p, [
     { label: 'NPV', value: fmt$(fSum.npv_usd), color: fSum.npv_usd >= 0 ? C.green : C.red, accent: fSum.npv_usd >= 0 ? C.green : C.red },
     { label: 'Savings PV', value: fmt$(fSum.savings_pv_usd), color: C.blue, accent: C.blue },
     { label: 'Payback', value: fSum.payback_years ? fSum.payback_years.toFixed(1) + ' YRS' : '—', color: C.black, accent: C.navy },
-  ], y += 10);
+  ], y);
   y = kpiRow(p, [
     { label: 'IRR', value: fSum.irr_pct ? fSum.irr_pct.toFixed(1) + '%' : '—', color: C.blue, accent: C.blue },
     { label: 'Investment', value: fmt$(fSum.total_investment_usd), color: C.red, accent: C.red },
@@ -726,9 +661,7 @@ if (vesselImageB64) {
     y += fH + 10;
   }
 
-  // ── Page numbers ─────────────────────────────────────────────────────
-  // Stamped last, over every physical page (including the cover), so the
-  // count and style are always correct and consistent across all pages.
+  
   const totalPages = p.internal.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     p.setPage(i);
