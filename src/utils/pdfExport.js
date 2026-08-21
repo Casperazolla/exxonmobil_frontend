@@ -438,21 +438,21 @@ console.log("PDF vessel image loaded:", !!vesselImageB64);
   } catch (e) {
     console.warn('Could not add vessel image to PDF:', e);
   }
-} else {
-  p.setFillColor('#CBD5E1');
-  p.roundedRect(imgX, imgY, imgW, imgH, 2, 2, 'D');
+ } //else {
+//   p.setFillColor('#CBD5E1');
+//   p.roundedRect(imgX, imgY, imgW, imgH, 2, 2, 'D');
 
-  p.setFontSize(8);
-  p.setFont('helvetica', 'italic');
-  p.setTextColor('#94A3B8');
+//   p.setFontSize(8);
+//   p.setFont('helvetica', 'italic');
+//   p.setTextColor('#94A3B8');
 
-  p.text(
-    'Vessel image unavailable',
-    imgX + imgW / 2,
-    imgY + imgH / 2,
-    { align: 'center' }
-  );
-}
+//   p.text(
+//     'Vessel image unavailable',
+//     imgX + imgW / 2,
+//     imgY + imgH / 2,
+//     { align: 'center' }
+//   );
+// }
 
   // ── Bottom section: vessel name left, TOC right ──
   const botY = imgY + imgH + 10;
