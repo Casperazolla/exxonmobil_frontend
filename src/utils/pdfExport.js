@@ -257,6 +257,48 @@ function addChart(p, img, x, y, w, h) {
   return y + h + 3;
 }
 
+
+
+const VESSEL_IMAGE_URLS = {
+  "Bochem London":
+    "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/bochem_london_clean.png",
+
+  "Prachi":
+    "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/prachi_clean.png",
+
+  "Tenjun":
+    "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/tenjun_clean.png",
+
+   "Ternfjord":
+   "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/ternfjord_clean.png", 
+};
+
+async function fetchImageAsDataURL(url) {
+  if (!url) return null;
+
+  try {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Image request failed: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.warn("Failed to load vessel image:", error);
+    return null;
+  }
+}
+
 // ════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT FUNCTION
 // ════════════════════════════════════════════════════════════════════════
@@ -271,6 +313,22 @@ export async function generateReport(opts) {
   const esds = input?.esd_measures || [];
   const imo = v.imo_number || '';
   const name = vesselName || v.vessel_name || 'Vessel';
+
+  const vesselKey = String(name).trim().toLowerCase();
+
+const vesselImageUrl =
+  VESSEL_IMAGE_URLS[
+    Object.keys(VESSEL_IMAGE_URLS).find(
+      key => key.toLowerCase() === vesselKey
+    )
+  ];
+
+console.log("PDF vessel name:", name);
+console.log("PDF vessel image URL:", vesselImageUrl);
+
+const vesselImageB64 = await fetchImageAsDataURL(vesselImageUrl);
+
+console.log("PDF vessel image loaded:", !!vesselImageB64);
 
   const esd = output?.esd || {};
   const esdR = esd.esd_results || [];
@@ -364,6 +422,37 @@ export async function generateReport(opts) {
     p.text('Vessel image', imgX + imgW / 2, imgY + imgH / 2 - 2, { align: 'center' });
     p.text('(pass vesselImageB64 to show photo)', imgX + imgW / 2, imgY + imgH / 2 + 5, { align: 'center' });
   }
+
+  if (vesselImageB64) {
+  try {
+    p.addImage(
+      vesselImageB64,
+      'PNG',
+      imgX,
+      imgY,
+      imgW,
+      imgH,
+      '',
+      'FAST'
+    );
+  } catch (e) {
+    console.warn('Could not add vessel image to PDF:', e);
+  }
+} else {
+  p.setFillColor('#CBD5E1');
+  p.roundedRect(imgX, imgY, imgW, imgH, 2, 2, 'D');
+
+  p.setFontSize(8);
+  p.setFont('helvetica', 'italic');
+  p.setTextColor('#94A3B8');
+
+  p.text(
+    'Vessel image unavailable',
+    imgX + imgW / 2,
+    imgY + imgH / 2,
+    { align: 'center' }
+  );
+}
 
   // ── Bottom section: vessel name left, TOC right ──
   const botY = imgY + imgH + 10;
