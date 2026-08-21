@@ -900,7 +900,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
           </svg> */}
           <img src="/Swoosh.png" alt="Azolla Logo" style={{ width: 22, height: 22, marginBottom: 4 }} />
           <span>AZOLLA ESD PLATFORM</span>
-          <span className="nav-badge">Decarbonisation</span>
+          <span className="nav-badge">Decarbonisation Suite</span>
         </a>
         <div className="nav-tabs">
           <button

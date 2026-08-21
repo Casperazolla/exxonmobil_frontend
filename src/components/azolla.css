@@ -433,6 +433,16 @@ textarea {
   gap: 10px
 }
 
+/* Stack these down to fewer columns on narrower screens instead of
+   squeezing 2-4 charts/cards into slivers on a phone. */
+@media (max-width: 900px) {
+  .g4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .g2 { grid-template-columns: 1fr; }
+  .g4 { grid-template-columns: 1fr; }
+}
+
 .card-body {
   padding: 14px
 }

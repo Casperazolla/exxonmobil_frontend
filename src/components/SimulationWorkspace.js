@@ -966,7 +966,7 @@ function EuTaxTab({ out }) {
 
   return(
     <div className="rwrap">
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:14}}>
+      <div className="grid grid-cols-1 sm:grid-cols-3" style={{gap:14,marginBottom:14}}>
         <div className="card" style={{padding:'12px 16px'}}>
           <div className="pen-l">EUA Cost</div>
           <div className="pen-v r">{fmt$(ps.total_eua_cost_usd)}</div>
@@ -1344,7 +1344,21 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
       )}
 
       {/* ========== SIDEBAR ========== */}
-      <div className={`sim-sidebar${sidebarOpen?' open':''}`} style={{flexShrink:0}}>
+      {/* Tailwind responsive classes layered on top of the existing .sim-sidebar
+          CSS: below the md breakpoint (768px) it becomes a fixed-position
+          overlay so it floats over the report instead of squeezing a fixed
+          296px out of a phone-width screen. At md: and up it behaves exactly
+          as before (in normal document flow, pushing content over). */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      <div
+        className={`sim-sidebar${sidebarOpen ? ' open' : ''} fixed md:static inset-y-0 left-0 z-50 md:z-auto`}
+        style={{ flexShrink: 0 }}
+      >
         <div className="sim-sidebar-inner">
 
           {/* Session header */}
@@ -1483,8 +1497,9 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
           </div>
         </div>
 
-        {/* Report tabs */}
-        <div className="report-tabs">
+        {/* Report tabs — scrolls horizontally on narrow screens instead of
+            squeezing every tab label down to nothing. */}
+        <div className="report-tabs overflow-x-auto">
           {[['fuel','ti-flame','Fuel'],['esd','ti-settings','ESD Results'],['cii','ti-chart-line','CII Strategy'],['fin','ti-coin','Financial'],['eutax','ti-leaf','EU Tax']].map(([key,icon,label])=>(
             <button key={key} className={`rtab${activeTab===key?' on':''}`} onClick={()=>setActiveTab(key)}>
               <i className={`ti ${icon}`}></i> {label}
