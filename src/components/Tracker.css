@@ -612,9 +612,61 @@ input[type="number"]::-webkit-inner-spin-button {
     font-size: 11px;
   }
 
-  .vessel-table th,
+  /* Below this width, a horizontally-scrolling table has no visible
+     scrollbar hint and is easy to mistake for "broken" — reflow into
+     stacked, labeled cards instead so every column and both action
+     buttons are just visible top-to-bottom, no scrolling needed.
+     !important beats the inline min-width:640px set on the <table>
+     itself for the wider-screen scrollable version. */
+  .vessel-table {
+    min-width: 0 !important;
+    width: 100% !important;
+    border-collapse: separate;
+    border-spacing: 0 10px;
+  }
+
+  .vessel-table thead {
+    display: none;
+  }
+
+  .vessel-table tbody,
+  .vessel-table tr,
   .vessel-table td {
-    padding: 8px;
+    display: block;
+    width: 100%;
+  }
+
+  .vessel-table tr {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 4px 12px;
+  }
+
+  .vessel-table td {
+    border-bottom: none !important;
+    padding: 6px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .vessel-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--ink3);
+    flex-shrink: 0;
+  }
+
+  /* These two cells hold multi-line / wrapping content that reads better
+     with the label stacked above it rather than squeezed to one side. */
+  .vessel-table td[data-label="Vessel"],
+  .vessel-table td[data-label="Actions"] {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .modal {

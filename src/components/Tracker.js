@@ -140,6 +140,19 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
   const savedDraft = savedDraftRef.current;
 
   const [activeTab, setActiveTab] = useState('vessels');
+
+  // The simulator page is built as a fixed-height layout with its own
+  // internal scroll areas (sidebar, chart panes) — that's intentional and
+  // stays untouched. The vessel dashboard has no such internal scroll
+  // container though, so on a phone, body's global `overflow:hidden` left
+  // the Reports/Download buttons unreachable below the fold. This toggles
+  // normal page scrolling back on, but only while the dashboard (not the
+  // simulator) is what's showing.
+  useEffect(() => {
+    document.body.classList.toggle('page-scrollable', activeTab !== 'simulator');
+    return () => document.body.classList.remove('page-scrollable');
+  }, [activeTab]);
+
   const [vessels, setVessels] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -995,7 +1008,8 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                       No vessels onboarded yet
                     </div>
                   ) : (
-                    <table className="vessel-table">
+                    <div className="overflow-x-auto">
+                    <table className="vessel-table" style={{minWidth: 640}}>
                       <thead>
                         <tr>
                           <th>Vessel</th>
@@ -1013,21 +1027,21 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                           const ageYrs = new Date().getFullYear() - vessel.buildYear;
                           return (
                             <tr key={vessel.id}>
-                              <td>
+                              <td data-label="Vessel">
                                 <div className="vessel-row-name">{vessel.vesselName}</div>
                                 <div className="vessel-row-sub">
                                   {vessel.owner} · {vessel.flag} · Built {vessel.buildYear} ({ageYrs}yr)
                                 </div>
                               </td>
-                              <td>
+                              <td data-label="Type">
                                 <span className="badge badge-blue">{vessel.vesselType}</span>
                               </td>
-                              <td className="mono">{vessel.imoNumber}</td>
-                              <td>{formatNumber(vessel.deadWeight)} t</td>
-                              <td>{formatNumber(vessel.grossTonnage)} t</td>
-                              <td>{vessel.buildYear} <span style={{ fontSize: 10, color: '#9CA3AF' }}>({ageYrs}yr)</span></td>
-                              <td>{vessel.sailingDays || '—'} days</td>
-                              <td>
+                              <td className="mono" data-label="IMO">{vessel.imoNumber}</td>
+                              <td data-label="DWT">{formatNumber(vessel.deadWeight)} t</td>
+                              <td data-label="GT">{formatNumber(vessel.grossTonnage)} t</td>
+                              <td data-label="Build Year">{vessel.buildYear} <span style={{ fontSize: 10, color: '#9CA3AF' }}>({ageYrs}yr)</span></td>
+                              <td data-label="Sailing Days">{vessel.sailingDays || '—'} days</td>
+                              <td data-label="Actions">
                                 <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                                   <button
                                     className="btn btn-secondary btn-sm"
@@ -1064,6 +1078,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
                         })}
                       </tbody>
                     </table>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1979,7 +1994,7 @@ function Tracker({ userEmail, isAdmin = false, onLogout }) {
 
               <div className="onboard-card">
                 <div className="onboard-title">
-                  Assign To
+                  👤 Assign To
                 </div>
 
                 <Select

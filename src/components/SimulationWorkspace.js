@@ -1351,12 +1351,12 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
           as before (in normal document flow, pushing content over). */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          className="fixed inset-0 z-[105] bg-black/40 md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
       <div
-        className={`sim-sidebar${sidebarOpen ? ' open' : ''} fixed md:static inset-y-0 left-0 z-50 md:z-auto`}
+        className={`sim-sidebar${sidebarOpen ? ' open' : ''} fixed md:static inset-y-0 left-0 z-[110] md:z-auto`}
         style={{ flexShrink: 0 }}
       >
         <div className="sim-sidebar-inner">
@@ -1369,6 +1369,20 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
               <div style={{fontSize:9,fontFamily:'IBM Plex Mono,monospace',color:'#9CA3AF'}}>{reportId||'NEW'}</div>
             </div>
             <span style={{fontSize:9,color:'#4ADE80'}}>{editCount} edits</span>
+            {/* On mobile the sidebar becomes a full-screen form (see the
+                width override in azolla.css) and the "Hide Inputs" toggle in
+                the report header behind it is no longer reachable — so this
+                gives an always-visible way to close it, right where you're
+                looking. Hidden at md: and up since the toggle button in the
+                header is visible there instead. */}
+            <button
+              className="md:hidden"
+              onClick={() => setSidebarOpen(false)}
+              style={{background:'transparent',border:'none',color:'#fff',fontSize:16,cursor:'pointer',padding:'2px 6px',flexShrink:0}}
+              aria-label="Close form"
+            >
+              ✕
+            </button>
           </div>
 
           {/* Voyage Parameters */}
@@ -1499,9 +1513,9 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
 
         {/* Report tabs — scrolls horizontally on narrow screens instead of
             squeezing every tab label down to nothing. */}
-        <div className="report-tabs overflow-x-auto">
+        <div className="report-tabs overflow-x-auto min-w-0">
           {[['fuel','ti-flame','Fuel'],['esd','ti-settings','ESD Results'],['cii','ti-chart-line','CII Strategy'],['fin','ti-coin','Financial'],['eutax','ti-leaf','EU Tax']].map(([key,icon,label])=>(
-            <button key={key} className={`rtab${activeTab===key?' on':''}`} onClick={()=>setActiveTab(key)}>
+            <button key={key} className={`rtab shrink-0 whitespace-nowrap${activeTab===key?' on':''}`} onClick={()=>setActiveTab(key)}>
               <i className={`ti ${icon}`}></i> {label}
             </button>
           ))}

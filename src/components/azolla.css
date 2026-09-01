@@ -34,6 +34,20 @@ body {
   overflow: hidden
 }
 
+/* The vessel dashboard has no internal scroll container of its own (unlike
+   the simulator), so on mobile the fixed-height body above left content
+   below the fold — like the Reports/Download buttons — unreachable.
+   Tracker.js toggles this class off automatically while the simulator is
+   open, so the simulator's own fixed-height/internal-scroll layout is
+   never affected by this. */
+@media (max-width: 767px) {
+  body.page-scrollable {
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
+  }
+}
+
 button,
 input,
 select,
@@ -359,6 +373,20 @@ textarea {
   flex-direction: column;
   height: 100%;
   overflow-y: auto
+}
+
+/* On mobile the sidebar is pinned as a fixed full-screen overlay (see the
+   fixed/md:static Tailwind classes on the element itself), but its width
+   still needs overriding here — a Tailwind width utility would lose to
+   these plain CSS rules since both load with equal specificity and this
+   stylesheet loads later in the bundle. Same reasoning as the .g2/.g4 fix. */
+@media (max-width: 767px) {
+  .sim-sidebar.open {
+    width: 100vw;
+  }
+  .sim-sidebar-inner {
+    width: 100vw;
+  }
 }
 
 /* Report main area */

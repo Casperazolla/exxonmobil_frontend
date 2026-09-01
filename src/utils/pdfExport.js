@@ -43,23 +43,34 @@ const TECH_NAME_OVERRIDES = {
 };
 const displayTechName = (name) => TECH_NAME_OVERRIDES[name] || name;
 
-function capChart(id) {
+function capChart(id, maxDim = 2200) {
   try {
     const el = document.getElementById(id);
     if (!el || el.width === 0 || el.height === 0) return null;
 
-    // Create a temporary canvas with white background
+    // Cap the ABSOLUTE output resolution rather than blindly multiplying by
+    // a fixed factor. Squaring a 3x width+height multiplier means 9x the
+    // pixel area — if the source canvas is already reasonably large (or
+    // already high-DPI from Chart.js's own devicePixelRatio setting), that
+    // compounds into a canvas whose base64 PNG can exceed the browser's/
+    // jsPDF's max string length ("Invalid string length"). This only scales
+    // UP small canvases, and never scales already-large ones further.
+    const longest = Math.max(el.width, el.height);
+    const scale = Math.min(3, Math.max(1, maxDim / longest));
+
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = el.width;
-    tempCanvas.height = el.height;
+    tempCanvas.width = Math.round(el.width * scale);
+    tempCanvas.height = Math.round(el.height * scale);
     const ctx = tempCanvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     // Fill with white background
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
 
-    // Draw original chart on top
-    ctx.drawImage(el, 0, 0);
+    // Draw original chart scaled to the capped size
+    ctx.drawImage(el, 0, 0, tempCanvas.width, tempCanvas.height);
 
     return tempCanvas.toDataURL('image/png', 1.0);
   } catch (e) {
@@ -67,22 +78,27 @@ function capChart(id) {
     return null;
   }
 }
-function capRef(el) {
+function capRef(el, maxDim = 2200) {
   try {
     if (!el || el.width === 0 || el.height === 0) return null;
 
-    // Create a temporary canvas with white background
+    // Same capped-resolution approach as capChart — see comment there.
+    const longest = Math.max(el.width, el.height);
+    const scale = Math.min(3, Math.max(1, maxDim / longest));
+
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = el.width;
-    tempCanvas.height = el.height;
+    tempCanvas.width = Math.round(el.width * scale);
+    tempCanvas.height = Math.round(el.height * scale);
     const ctx = tempCanvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     // Fill with white background
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
 
-    // Draw original chart on top
-    ctx.drawImage(el, 0, 0);
+    // Draw original chart scaled to the capped size
+    ctx.drawImage(el, 0, 0, tempCanvas.width, tempCanvas.height);
 
     return tempCanvas.toDataURL('image/png', 1.0);
   } catch (e) {
@@ -177,6 +193,12 @@ function table(p, heads, rows, y, ws, opts = {}) {
   const {
     rowH = 7, fontSize = 7, zebra = true, headerBg = C.navy,
     x: X = M, width: W = CW,
+    // Page 2's tables use a lighter, more saturated blue palette with a
+    // full grid of borders — these let page 3/5 opt into that exact look
+    // without touching every other table in the document.
+    zebraColors = [null, '#F1F5F9'],   // [even-row fill, odd-row fill] — null = no fill
+    borderColor = '#E2E8F0',
+    gridLines = false,                  // draw vertical column dividers too
   } = opts;
   // Need room for the header (9mm) plus at least one data row before it's
   // worth starting the table at all — otherwise skip it entirely so it
@@ -190,6 +212,8 @@ function table(p, heads, rows, y, ws, opts = {}) {
   // Header row
   p.setFillColor(headerBg);
   p.rect(X, y, W, 9, 'F');
+  p.setDrawColor(borderColor); p.setLineWidth(0.2);
+  p.rect(X, y, W, 9);
   p.setFontSize(fontSize - 0.5); p.setFont('helvetica', 'bold');
   p.setTextColor(C.white);
   let x = X + 2;
@@ -197,6 +221,7 @@ function table(p, heads, rows, y, ws, opts = {}) {
     const align = i === 0 ? 'left' : 'right';
     const tx = align === 'right' ? x + cw[i] - 2 : x;
     p.text(String(h), tx, y + 6, { align });
+    if (gridLines && i > 0) p.line(x, y, x, y + 9);
     x += cw[i];
   });
   y += 9;
@@ -205,10 +230,16 @@ function table(p, heads, rows, y, ws, opts = {}) {
   p.setFont('helvetica', 'normal'); p.setFontSize(fontSize);
   rows.forEach((row, ri) => {
     if (y + rowH > CONTENT_BOTTOM) return;
-    // Zebra stripe
-    if (zebra && ri % 2 === 1) {
-      p.setFillColor('#F1F5F9');
+    // Zebra stripe — page 2 fills every row (alternating two tints), the
+    // original style only tints odd rows and leaves even rows blank.
+    const fill = zebra ? zebraColors[ri % 2] : null;
+    if (fill) {
+      p.setFillColor(fill);
       p.rect(X, y, W, rowH, 'F');
+    }
+    if (gridLines) {
+      p.setDrawColor(borderColor); p.setLineWidth(0.2);
+      p.rect(X, y, W, rowH);
     }
     p.setTextColor(C.black);
     x = X + 2;
@@ -218,12 +249,15 @@ function table(p, heads, rows, y, ws, opts = {}) {
       const val = String(cell ?? '—');
       p.setTextColor(C.black);
       p.text(val, tx, y + rowH - 1.7, { align });
+      if (gridLines && ci > 0) p.line(x, y, x, y + rowH);
       x += cw[ci];
     });
     y += rowH;
-    // Row divider
-    p.setDrawColor('#E2E8F0'); p.setLineWidth(0.1);
-    p.line(X, y, X + W, y);
+    // Row divider (skipped when gridLines already draws a full box per row)
+    if (!gridLines) {
+      p.setDrawColor(borderColor); p.setLineWidth(0.1);
+      p.line(X, y, X + W, y);
+    }
   });
   // Bottom border
   p.setDrawColor(C.border); p.setLineWidth(0.3);
@@ -380,7 +414,7 @@ console.log("PDF vessel image loaded:", !!vesselImageB64);
   // ── Background: clean white with subtle left navy band ──
   p.setFillColor('#FFFFFF'); p.rect(0, 0, PW, PH, 'F');
   // Left navy accent strip (full height)
-  p.setFillColor('#1B2A4A'); p.rect(0, 0, 6, PH, 'F');
+  p.setFillColor('#EAF2F8'); p.rect(117, 0, PW, PH, 'F');
 
   // ── Top-right: date + doc ref ──
   p.setFontSize(7); p.setFont('helvetica', 'normal'); p.setTextColor('#64748B');
@@ -400,7 +434,7 @@ console.log("PDF vessel image loaded:", !!vesselImageB64);
   p.line(tX, 76, tX + 42, 76);
 
   // ── Vessel image (or placeholder if none was provided) ──
-  const imgX = tX, imgY = 82, imgW = CW, imgH = 78;
+  const imgX = tX + 40, imgY = 82, imgW = CW - 27, imgH = 78;
   let vesselImageDrawn = false;
   if (opts.vesselImageB64) {
     // jsPDF needs the actual format ('JPEG'/'PNG'/'WEBP') to match the real
@@ -458,12 +492,12 @@ console.log("PDF vessel image loaded:", !!vesselImageB64);
   const botY = imgY + imgH + 10;
 
   // Vessel name + IMO — bold, left
-  p.setFontSize(17); p.setFont('helvetica', 'bold'); p.setTextColor('#1B2A4A');
-  p.text('M/V ' + name, tX, botY + 4);
-  p.setFontSize(11); p.setFont('helvetica', 'normal'); p.setTextColor('#334155');
-  p.text('IMO No.: ' + imo, tX, botY + 13);
-  p.setFontSize(8); p.setTextColor('#64748B');
-  p.text((v.vessel_type || '') + '  |  ' + fmtN(v.dead_weight) + ' DWT  |  Built ' + (v.build_year || ''), tX, botY + 21);
+  p.setFontSize(30); p.setFont('helvetica', 'bold'); p.setTextColor('#1B2A4A');
+  p.text('M/V ' + name, tX, botY + 10);
+  p.setFontSize(15); p.setFont('helvetica', 'normal'); p.setTextColor('#334155');
+  p.text('IMO No.: ' + imo, tX, botY + 20);
+  p.setFontSize(10); p.setTextColor('#64748B');
+  p.text((v.vessel_type || '') + '  |  ' + fmtN(v.dead_weight) + ' DWT  |  Built ' + (v.build_year || ''), tX, botY + 31);
 
   // Thin vertical divider between vessel name and TOC
   const divX = PW / 2 + 4;
@@ -496,7 +530,7 @@ console.log("PDF vessel image loaded:", !!vesselImageB64);
   // ── Logo bottom left ──
   const logoY = PH - 24;
   try {
-    p.addImage(LOGO_B64, 'JPEG', tX, logoY, 38, 14);
+    p.addImage(LOGO_B64, 'JPEG', tX, logoY, 30, 15);
   } catch (e) {
     p.setFontSize(10); p.setFont('helvetica', 'bold'); p.setTextColor('#1B2A4A');
     p.text('azolla', tX, logoY + 10);
@@ -508,54 +542,249 @@ console.log("PDF vessel image loaded:", !!vesselImageB64);
 
   // ═══ PAGE 2 — VESSEL + FUEL ═══════════════════════════════════════════
   p.addPage();
-  y = 10;
+  // page background strip similar to the reference page
+  p.setFillColor('#F6F9FC');
+  p.rect(18, 0, 18, PH, 'F');
+  y = 20;
 
-  y = secTitle(p, 'Vessel Information', y);
-
-  // Full vessel info as a clean 2-column table
-  const vesselInfo = [
-    ['Owner', v.name_of_owner || '—', 'IMO Number', imo],
-    ['Vessel type', v.vessel_type || '—', 'Flag', v.flag || '—'],
-    ['Built', String(v.build_year || '—'), 'Classification', v.classification_society || '—'],
-    ['DWT', fmtN(v.dead_weight) + ' MT', 'Gross tonnage', fmtN(v.gross_tonnage) + ' GT'],
-    ['Sailing days', vm.sailing_days_per_year + ' /YR', 'Non-sailing days', vm.non_steaming_days_per_year + ' /YR'],
-    ['Distance', fmtN(vm.distance_nm) + ' NM/YR', 'EU voyage share', vm.eu_voyages_percent + '%'],
-    ['EUA cost', String(vm.eua_cost_usd) + ' USD/TCO2', 'Discount rate', ((input?.discount_rate || 0.1) * 100) + '%'],
-    ['Analysis start', vm.analysis_month + '/' + vm.analysis_year, 'Docking month', String(vm.docking_month || '—')],
-  ];
-  const hw = CW / 2;
-  vesselInfo.forEach((row, ri) => {
-    const bg = ri % 2 === 1 ? '#F8FAFC' : '#FFFFFF';
-    p.setFillColor(bg); p.rect(M, y, CW, 7.2, 'F');
-    p.setFontSize(7.5); p.setFont('helvetica', 'normal');
-    p.setTextColor(C.slate); p.text(row[0], M + 2, y + 4.8);
-    p.setTextColor(C.black); p.text(String(row[1]), M + 36, y + 4.8);
-    p.setTextColor(C.slate); p.text(row[2], M + hw + 2, y + 4.8);
-    p.setTextColor(C.black); p.text(String(row[3]), M + hw + 36, y + 4.8);
-    y += 11.2;
-  });
-  // Divider
-  p.setDrawColor(C.border); p.setLineWidth(0.2); p.line(M, y, PW - M, y);
-  y += 12;
-
-  y = kpiRow(p, [
-    { label: 'Total fuel consumption', value: fmtN(totC, 0) + ' MT /YR', color: C.black, accent: C.navy },
-    { label: 'Total fuel cost', value: fmt$(totCost) + ' /YR', color: C.amber, accent: C.amber },
-    { label: 'EU compliance cost', value: fmt$(pen.total_eu_compliance_cost_usd) + ' /YR', color: C.red, accent: C.red },
-    { label: 'Machines', value: String(mch.length), color: C.black, accent: C.slate },
-  ], y);
-
-  y = secTitle(p, 'Fuel Consumption', y += 10);
-  const fuelRows = mch.flatMap(m => m.fuel_particulars.map(fp => [
-    m.machine_name, fp.fuel_name,
-    fmtN(fp.consumption_mt, 2),
-    '$' + fmtN(fp.fuel_price_usd_per_mt),
-    fmt$(fp.consumption_mt * fp.fuel_price_usd_per_mt)
-  ]));
-  fuelRows.push(['TOTAL', '', fmtN(totC, 2), '', fmt$(totCost)]);
-  y = table(p, ['Machine', 'Fuel', 'MT / YR', 'Price (USD/MT)', 'Annual cost'], fuelRows, y, [40, 20, 22, 24, 26]);
+  // Title and intro
+  p.setFont('helvetica', 'bold');
+  p.setFontSize(30);
+  p.setTextColor('#0F172A');
+  p.text('General Information of Vessel', M, y);
   y += 10;
 
+  p.setFont('helvetica', 'normal');
+  p.setFontSize(8.6);
+  p.setTextColor('#1F2937');
+  p.text('The following general information for the vessel has been submitted:', M, y);
+  y += 8;
+
+  // Table 1 caption
+  p.setFont('helvetica', 'italic');
+  p.setFontSize(8.4);
+  p.setTextColor('#374151');
+  p.text('Table 1: General particulars', PW / 2, y, { align: 'center' });
+  y += 3;
+
+  // Table 1: 2-column key/value
+  const t1X = 44;
+  const t1W = 122;
+  const t1RowH = 7.6;
+  const t1LeftW = 62;
+  const table1Rows = [
+    ['Name of the Owner', v.name_of_owner || '—'],
+    ['Vessel Name', (vesselName || v.vessel_name || '—')],
+    ['IMO number', imo || '—'],
+    ['Vessel Type', v.vessel_type || '—'],
+    ['Year of Built', String(v.build_year || '—')],
+    ['Dead Weight Tonnage', fmtN(v.dead_weight) || '—'],
+    ['Redelivery Date', v.redelivery_date || 'February 2029'],
+  ];
+
+  p.setDrawColor('#95B3D7');
+  p.setLineWidth(0.2);
+  table1Rows.forEach((r, i) => {
+    const ry = y + i * t1RowH;
+    const rowBg = i % 2 === 0 ? '#EEF4FB' : '#DBE7F5';
+    p.setFillColor(rowBg);
+    p.rect(t1X, ry, t1W, t1RowH, 'F');
+    p.rect(t1X, ry, t1W, t1RowH);
+
+    p.setFont('helvetica', 'bolditalic');
+    p.setFontSize(8.7);
+    p.setTextColor('#111827');
+    p.text(String(r[0]), t1X + 8, ry + 5.2);
+
+    p.setFont('helvetica', 'normal');
+    p.text(String(r[1]), t1X + t1LeftW + 4, ry + 5.2);
+  });
+  y += table1Rows.length * t1RowH + 12;
+
+  // Section 2 title and intro
+  p.setFont('helvetica', 'bold');
+  p.setFontSize(30);
+  p.setTextColor('#0F172A');
+  p.text("Vessel's Consumption Profile", M, y);
+  y += 9;
+
+  p.setFont('helvetica', 'normal');
+  p.setFontSize(8.6);
+  p.setTextColor('#1F2937');
+  const cPara = 'The fuel consumption profile of this vessel is received from the Vessel Managers. The distribution of the fuel quantity and types over its different consumers is as shown below.';
+  const cLines = p.splitTextToSize(cPara, CW);
+  p.text(cLines, M, y);
+  y += cLines.length * 4.2 + 5;
+
+  // Build fuel profile rows like the reference table layout
+  const fuelProfile = {};
+  const machineOrder = ['ME', 'AE', 'Boiler', 'Others'];
+  machineOrder.forEach(k => {
+    fuelProfile[k] = { doGo: 0, lfo: 0, hfo: 0 };
+  });
+
+  const machineKey = (name) => {
+    const n = String(name || '').toLowerCase();
+    if (n.includes('main') || n === 'me' || n.includes('m/e')) return 'ME';
+    if (n.includes('aux') || n === 'ae' || n.includes('a/e')) return 'AE';
+    if (n.includes('boiler')) return 'Boiler';
+    return 'Others';
+  };
+  const fuelKey = (name) => {
+    const f = String(name || '').toLowerCase();
+    if (f.includes('hfo')) return 'hfo';
+    if (f.includes('lfo') || f.includes('vlsfo') || f.includes('lsfo')) return 'lfo';
+    if (f.includes('do') || f.includes('go') || f.includes('mgo') || f.includes('mdo') || f.includes('diesel')) return 'doGo';
+    return null;
+  };
+
+  mch.forEach(m => {
+    const mk = machineKey(m.machine_name);
+    (m.fuel_particulars || []).forEach(fp => {
+      const fk = fuelKey(fp.fuel_name);
+      if (!fk) return;
+      fuelProfile[mk][fk] += Number(fp.consumption_mt || 0);
+    });
+  });
+
+  const totalRow = machineOrder.reduce((acc, k) => {
+    acc.doGo += fuelProfile[k].doGo;
+    acc.lfo += fuelProfile[k].lfo;
+    acc.hfo += fuelProfile[k].hfo;
+    return acc;
+  }, { doGo: 0, lfo: 0, hfo: 0 });
+
+  // Table 2 caption
+  p.setFont('helvetica', 'italic');
+  p.setFontSize(8.4);
+  p.setTextColor('#374151');
+  p.text('Table 2: Fuel consumption profile', PW / 2, y, { align: 'center' });
+  y += 4;
+
+  // Table 2: dark two-level header
+  const t2X = 44;
+  const t2W = 122;
+  const t2RowH = 7.4;
+  const colW = [34, 29, 29, 30];
+
+  p.setFillColor('#163B66');
+  p.rect(t2X, y, t2W, t2RowH * 2, 'F');
+  p.setDrawColor('#95B3D7');
+  p.setLineWidth(0.2);
+  p.rect(t2X, y, t2W, t2RowH * 2);
+
+  p.setFont('helvetica', 'bolditalic');
+  p.setFontSize(8.5);
+  p.setTextColor('#FFFFFF');
+  p.text('Equipment', t2X + colW[0] / 2, y + 4.6, { align: 'center' });
+  p.text('(consumer)', t2X + colW[0] / 2, y + 9.7, { align: 'center' });
+  p.text('Annual fuel consumption (MT)', t2X + colW[0] + (colW[1] + colW[2] + colW[3]) / 2, y + 7.2, { align: 'center' });
+
+  const ySub = y + t2RowH;
+  p.text('DO/GO', t2X + colW[0] + colW[1] / 2, ySub + 5, { align: 'center' });
+  p.text('LFO', t2X + colW[0] + colW[1] + colW[2] / 2, ySub + 5, { align: 'center' });
+  p.text('HFO', t2X + colW[0] + colW[1] + colW[2] + colW[3] / 2, ySub + 5, { align: 'center' });
+
+  // Vertical lines in header
+  let t2vx = t2X + colW[0];
+  p.line(t2vx, y, t2vx, y + t2RowH * 2);
+  t2vx += colW[1]; p.line(t2vx, y + t2RowH, t2vx, y + t2RowH * 2);
+  t2vx += colW[2]; p.line(t2vx, y + t2RowH, t2vx, y + t2RowH * 2);
+  p.line(t2X, y + t2RowH, t2X + t2W, y + t2RowH);
+
+  y += t2RowH * 2;
+
+  const t2Rows = [
+    ['ME', fuelProfile.ME.doGo, fuelProfile.ME.lfo, fuelProfile.ME.hfo],
+    ['AE', fuelProfile.AE.doGo, fuelProfile.AE.lfo, fuelProfile.AE.hfo],
+    ['Boiler', fuelProfile.Boiler.doGo, fuelProfile.Boiler.lfo, fuelProfile.Boiler.hfo],
+    ['Others', fuelProfile.Others.doGo, fuelProfile.Others.lfo, fuelProfile.Others.hfo],
+    ['Total', totalRow.doGo, totalRow.lfo, totalRow.hfo],
+  ];
+
+  t2Rows.forEach((r, i) => {
+    const bg = i % 2 === 0 ? '#EEF4FB' : '#DBE7F5';
+    p.setFillColor(bg);
+    p.rect(t2X, y, t2W, t2RowH, 'F');
+    p.setDrawColor('#95B3D7');
+    p.rect(t2X, y, t2W, t2RowH);
+
+    let cx = t2X;
+    [colW[0], colW[1], colW[2], colW[3]].forEach((w, idx) => {
+      if (idx > 0) p.line(cx, y, cx, y + t2RowH);
+      cx += w;
+    });
+
+    p.setFont('helvetica', 'bolditalic');
+    p.setFontSize(8.6);
+    p.setTextColor('#111827');
+    p.text(String(r[0]), t2X + colW[0] / 2, y + 5.1, { align: 'center' });
+
+    const valueFont = i === t2Rows.length - 1 ? 'bold' : 'normal';
+    p.setFont('helvetica', valueFont);
+    p.text(Number(r[1]).toFixed(2), t2X + colW[0] + colW[1] / 2, y + 5.1, { align: 'center' });
+    p.text(Number(r[2]).toFixed(2), t2X + colW[0] + colW[1] + colW[2] / 2, y + 5.1, { align: 'center' });
+    p.text(Number(r[3]).toFixed(2), t2X + colW[0] + colW[1] + colW[2] + colW[3] / 2, y + 5.1, { align: 'center' });
+
+    y += t2RowH;
+  });
+
+  y += 9;
+
+ 
+
+  // derive representative prices from available fuel particulars
+  let doGoPrice = null;
+  let lfoPrice = null;
+  mch.forEach(m => {
+    (m.fuel_particulars || []).forEach(fp => {
+      const fk = fuelKey(fp.fuel_name);
+      if (fk === 'doGo' && doGoPrice == null) doGoPrice = Number(fp.fuel_price_usd_per_mt || 0);
+      if (fk === 'lfo' && lfoPrice == null) lfoPrice = Number(fp.fuel_price_usd_per_mt || 0);
+    });
+  });
+
+  const t3X = 48;
+  const t3W = 114;
+  const t3RH = 7.4;
+  const t3L = 62;
+
+  p.setFillColor('#163B66');
+  p.rect(t3X, y, t3W, t3RH, 'F');
+  p.setDrawColor('#95B3D7');
+  p.rect(t3X, y, t3W, t3RH);
+  p.setFont('helvetica', 'bolditalic');
+  p.setFontSize(8.6);
+  p.setTextColor('#FFFFFF');
+  p.text('Fuel type', t3X + t3L / 2, y + 5, { align: 'center' });
+  p.text('Bunker Cost (USD/MT)', t3X + t3L + (t3W - t3L) / 2, y + 5, { align: 'center' });
+  p.line(t3X + t3L, y, t3X + t3L, y + t3RH);
+  y += t3RH;
+
+  const t3Rows = [
+    ['Diesel / Gas Oil', doGoPrice != null ? String(Math.round(doGoPrice)) : '—'],
+    ['LFO', lfoPrice != null ? String(Math.round(lfoPrice)) : '—'],
+  ];
+
+  t3Rows.forEach((r, i) => {
+    const bg = i % 2 === 0 ? '#EEF4FB' : '#DBE7F5';
+    p.setFillColor(bg);
+    p.rect(t3X, y, t3W, t3RH, 'F');
+    p.setDrawColor('#95B3D7');
+    p.rect(t3X, y, t3W, t3RH);
+    p.line(t3X + t3L, y, t3X + t3L, y + t3RH);
+
+    p.setFont('helvetica', 'bolditalic');
+    p.setFontSize(8.8);
+    p.setTextColor('#111827');
+    p.text(r[0], t3X + t3L / 2, y + 5.1, { align: 'center' });
+
+    p.setFont('helvetica', 'normal');
+    p.text(r[1], t3X + t3L + (t3W - t3L) / 2, y + 5.1, { align: 'center' });
+    y += t3RH;
+  });
+
+ 
  
   p.addPage();
   y = 10;
@@ -571,7 +800,7 @@ console.log("PDF vessel image loaded:", !!vesselImageB64);
   ], y, P3X, P3W);
 
   const eRows = esdR.map((e, i) => [
-    i + 1, displayTechName(e.tech_name),
+     displayTechName(e.tech_name),
     e.installation_req?.replace('_', '-') || '—',
     (e.lead_time_months || '—') + ' MO',
     (e.calculated_saving_pct?.toFixed(2) || '—') + '%',
@@ -579,13 +808,19 @@ console.log("PDF vessel image loaded:", !!vesselImageB64);
     fmt$(e.total_annual_savings_usd),
     e.payback_with_ets_years ? e.payback_with_ets_years.toFixed(1) + ' YR' : '—',
   ]);
-  y = table(p, ['#', 'ESD Technology', 'Install', 'Lead', 'Eff%', 'Cost', 'Savings /YR', 'Payback'],
-    eRows, y, [6, 46, 15, 12, 12, 22, 22, 15], { x: P3X, width: P3W });
+  y = table(p, ['ESD Technology', 'Install', 'Lead', 'Eff%', 'Cost', 'Savings /YR', 'Payback'],
+    eRows, y, [ 46, 15, 12, 12, 22, 22, 15], {
+      x: P3X, width: P3W,
+      headerBg: '#163B66', zebraColors: ['#EEF4FB', '#DBE7F5'], borderColor: '#95B3D7', gridLines: true,
+    });
 
   if (tl.length && y < CONTENT_BOTTOM - 30) {
     y += 10; y = secTitle(p, 'Implementation Timeline', y, C.navy, P3X);
     const tlRows = tl.map(t => [t.implementation_label, displayTechName(t.name), t.installation_req?.replace('_', '-'), '+' + t.saving_pct + '%']);
-    y = table(p, ['Date', 'ESD', 'Type', 'Saving%'], tlRows, y, [22, 68, 20, 14], { x: P3X, width: P3W });
+    y = table(p, ['Date', 'ESD', 'Type', 'Saving%'], tlRows, y, [22, 68, 20, 14], {
+      x: P3X, width: P3W,
+      headerBg: '#163B66', zebraColors: ['#EEF4FB', '#DBE7F5'], borderColor: '#95B3D7', gridLines: true,
+    });
   }
 
  
@@ -610,13 +845,13 @@ console.log("PDF vessel image loaded:", !!vesselImageB64);
       const currIdx = currPrice != null ? pbPrices.indexOf(currPrice) : -1;
 
       // Build headers: #, ESD, price1, price2..., Current
-      const sensHeaders = ['#', 'ESD Technology',
+      const sensHeaders = [ 'ESD Technology',
         ...pbPrices.map((pr, i) => (i === currIdx ? '*$' + pr : '$' + pr)),
         'Current'];
 
       // Build ESD rows
       const sensRows = esdSens.map((e, i) => [
-        i + 1,
+        
         displayTechName(e.tech_name) || '?',
         ...(e.payback_by_case || []).map(pb => pb != null ? Number(pb).toFixed(1) : '-'),
         e.current_payback_with_eu != null ? Number(e.current_payback_with_eu).toFixed(1) : '-',
@@ -636,9 +871,12 @@ console.log("PDF vessel image loaded:", !!vesselImageB64);
       const nameW = 40;
       const numCols = pbPrices.length + 1;  // +1 for Current column
       const colW = Math.max(7, Math.floor((P3W - 6 - nameW) / numCols));
-      const sensWidths = [6, nameW, ...Array(numCols).fill(colW)];
+      const sensWidths = [ nameW, ...Array(numCols).fill(colW)];
 
-      y = table(p, sensHeaders, sensRows, y += 10, sensWidths, { fontSize: 5.5, rowH: 5, x: P3X, width: P3W });
+      y = table(p, sensHeaders, sensRows, y += 10, sensWidths, {
+        fontSize: 5.5, rowH: 5, x: P3X, width: P3W,
+        headerBg: '#163B66', zebraColors: ['#EEF4FB', '#DBE7F5'], borderColor: '#95B3D7', gridLines: true,
+      });
     }
   }
 
@@ -700,7 +938,8 @@ console.log("PDF vessel image loaded:", !!vesselImageB64);
       ['TTW (Tank-to-Wake)', feu.ghg_intensity_ttw?.toFixed(4) || '—', '', ''],
       ['Total GHG intensity', feu.ghg_intensity_total?.toFixed(4) || '—', feu.ghg_target?.toFixed(4) || '—', feu.compliant ? 'COMPLIANT' : 'NON-COMPLIANT'],
     ],
-    y, [55, 40, 40, 37]
+    y, [55, 40, 40, 37],
+    { headerBg: '#163B66', zebraColors: ['#EEF4FB', '#DBE7F5'], borderColor: '#95B3D7', gridLines: true }
   );
   y += 11;
 
@@ -713,7 +952,10 @@ console.log("PDF vessel image loaded:", !!vesselImageB64);
     fmt$(r.esd_fuel_savings_usd), fmt$(r.esd_eua_savings_usd), fmt$(r.esd_fueleu_savings_usd),
   ]);
   y = table(p, ['Year', 'MO', 'Target', 'GHG', 'Excess', 'FuelEU', 'EUA', 'ESD Fuel', 'ESD EUA', 'ESD FEU'],
-    yrRows, y, [12, 10, 16, 18, 16, 20, 20, 20, 18, 18], { fontSize: 6.5, rowH: 5.5 });
+    yrRows, y, [12, 10, 16, 18, 16, 20, 20, 20, 18, 18], {
+      fontSize: 6.5, rowH: 5.5,
+      headerBg: '#163B66', zebraColors: ['#EEF4FB', '#DBE7F5'], borderColor: '#95B3D7', gridLines: true,
+    });
 
   // ═══ PAGE 6 — FINANCIALS ══════════════════════════════════════════════
   p.addPage();
