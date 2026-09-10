@@ -966,7 +966,7 @@ function EuTaxTab({ out }) {
 
   return(
     <div className="rwrap">
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:14}}>
+      <div className="grid grid-cols-1 sm:grid-cols-3" style={{gap:14,marginBottom:14}}>
         <div className="card" style={{padding:'12px 16px'}}>
           <div className="pen-l">EUA Cost</div>
           <div className="pen-v r">{fmt$(ps.total_eua_cost_usd)}</div>
@@ -1123,6 +1123,11 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
   const [vesselLifeYears, setVesselLifeYears]  = useState(25);
   const [vesselEndYear,   setVesselEndYear]    = useState('');
   const [vesselEndMonth,  setVesselEndMonth]   = useState('');
+
+  // Fuel modal state
+  const [fuelModalOpen,   setFuelModalOpen]    = useState(false);
+  const [fuelModalMachineIdx, setFuelModalMachineIdx] = useState(null);
+  const [fuelFormData, setFuelFormData] = useState({fuel_name:'',consumption_mt:'',fuel_price_usd_per_mt:''});
   const [discountRate,    setDiscountRate]     = useState(0.10);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -1197,12 +1202,43 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
 
   // ── sidebar edit helpers ─────────────────────────────────────────────
   const updateFuel = (mi,fi,field,val) => {
-    setMachines(prev=>prev.map((m,i)=>i!==mi?m:{...m,fuel_particulars:m.fuel_particulars.map((f,j)=>j!==fi?f:{...f,[field]:Number(val)||0})}));
+    const newVal = field==='fuel_name'?val:Number(val)||0;
+    setMachines(prev=>prev.map((m,i)=>i!==mi?m:{...m,fuel_particulars:m.fuel_particulars.map((f,j)=>j!==fi?f:{...f,[field]:newVal})}));
+    mark();
+  };
+  const addFuelParticular = (mi) => {
+    setMachines(prev=>prev.map((m,i)=>i!==mi?m:{...m,fuel_particulars:[...(m.fuel_particulars||[]),{fuel_name:'',consumption_mt:0,fuel_price_usd_per_mt:0}]}));
+    mark();
+  };
+  const removeFuelParticular = (mi,fi) => {
+    setMachines(prev=>prev.map((m,i)=>i!==mi?m:{...m,fuel_particulars:(m.fuel_particulars||[]).filter((f,j)=>j!==fi)}));
     mark();
   };
   const toggleEsd   = (i,v) => { setEsds(prev=>prev.map((e,j)=>j===i?{...e,selected:v}:e)); mark(); };
   const updateEsd   = (i,f,v) => { setEsds(prev=>prev.map((e,j)=>j===i?{...e,[f]:Number(v)||0}:e)); mark(); };
   const toggleAll   = (v) => { setEsds(prev=>prev.map(e=>({...e,selected:v}))); mark(); };
+
+  // Fuel modal handlers
+  const openFuelModal = (mi) => {
+    setFuelModalMachineIdx(mi);
+    setFuelFormData({fuel_name:'',consumption_mt:'',fuel_price_usd_per_mt:''});
+    setFuelModalOpen(true);
+  };
+  const closeFuelModal = () => {
+    setFuelModalOpen(false);
+    setFuelModalMachineIdx(null);
+    setFuelFormData({fuel_name:'',consumption_mt:'',fuel_price_usd_per_mt:''});
+  };
+  const submitFuelModal = () => {
+    if(fuelModalMachineIdx===null || fuelModalMachineIdx==='') { alert('Please select a machine'); return; }
+    if(!fuelFormData.fuel_name) { alert('Please select a fuel type'); return; }
+    if(!fuelFormData.consumption_mt || isNaN(fuelFormData.consumption_mt)) { alert('Please enter consumption'); return; }
+    if(!fuelFormData.fuel_price_usd_per_mt || isNaN(fuelFormData.fuel_price_usd_per_mt)) { alert('Please enter price'); return; }
+    
+    setMachines(prev=>prev.map((m,i)=>i!==fuelModalMachineIdx?m:{...m,fuel_particulars:[...(m.fuel_particulars||[]),{fuel_name:fuelFormData.fuel_name,consumption_mt:Number(fuelFormData.consumption_mt),fuel_price_usd_per_mt:Number(fuelFormData.fuel_price_usd_per_mt)}]}));
+    mark();
+    closeFuelModal();
+  };
 
   // ── run simulation ────────────────────────────────────────────────────
   const runSim = async () => {
@@ -1224,7 +1260,14 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
         common_impl_month:           commonImplMonth ? Number(commonImplMonth) : undefined,
         common_impl_year:            commonImplYear  ? Number(commonImplYear)  : undefined,
       },
-      machines,
+      machines: machines.map(m=>({
+        machine_name: m.machine_name,
+        fuel_particulars: (m.fuel_particulars||[]).map(fp=>({
+          fuel_name: fp.fuel_name,
+          consumption_mt: Number(fp.consumption_mt)||0,
+          fuel_price_usd_per_mt: Number(fp.fuel_price_usd_per_mt)||0
+        }))
+      })),
       vessel_life_years: vesselLifeYears,
       vessel_end_year:   vesselEndYear  ? Number(vesselEndYear)  : undefined,
       vessel_end_month:  vesselEndMonth ? Number(vesselEndMonth) : undefined,
@@ -1344,7 +1387,21 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
       )}
 
       {/* ========== SIDEBAR ========== */}
-      <div className={`sim-sidebar${sidebarOpen?' open':''}`} style={{flexShrink:0}}>
+      {/* Tailwind responsive classes layered on top of the existing .sim-sidebar
+          CSS: below the md breakpoint (768px) it becomes a fixed-position
+          overlay so it floats over the report instead of squeezing a fixed
+          296px out of a phone-width screen. At md: and up it behaves exactly
+          as before (in normal document flow, pushing content over). */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-[105] bg-black/40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      <div
+        className={`sim-sidebar${sidebarOpen ? ' open' : ''} fixed md:static inset-y-0 left-0 z-[110] md:z-auto`}
+        style={{ flexShrink: 0 }}
+      >
         <div className="sim-sidebar-inner">
 
           {/* Session header */}
@@ -1355,6 +1412,20 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
               <div style={{fontSize:9,fontFamily:'IBM Plex Mono,monospace',color:'#9CA3AF'}}>{reportId||'NEW'}</div>
             </div>
             <span style={{fontSize:9,color:'#4ADE80'}}>{editCount} edits</span>
+            {/* On mobile the sidebar becomes a full-screen form (see the
+                width override in azolla.css) and the "Hide Inputs" toggle in
+                the report header behind it is no longer reachable — so this
+                gives an always-visible way to close it, right where you're
+                looking. Hidden at md: and up since the toggle button in the
+                header is visible there instead. */}
+            <button
+              className="md:hidden"
+              onClick={() => setSidebarOpen(false)}
+              style={{background:'transparent',border:'none',color:'#fff',fontSize:16,cursor:'pointer',padding:'2px 6px',flexShrink:0}}
+              aria-label="Close form"
+            >
+              ✕
+            </button>
           </div>
 
           {/* Voyage Parameters */}
@@ -1390,20 +1461,81 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
 
           {/* Fuel Particulars */}
           <div className="sim-sec">
-            <div className="sim-sec-title">Fuel Particulars</div>
-            {machines.map((m,mi)=>(m.fuel_particulars||[]).map((fp,fi)=>(
-              <div key={`${mi}-${fi}`} style={{marginBottom:9,padding:7,background:'var(--bg)',borderRadius:5}}>
-                <div style={{fontSize:10,fontWeight:600,marginBottom:5,display:'flex',alignItems:'center',gap:5}}>
-                  {m.machine_name}
-                  <span style={{display:'inline-block',padding:'2px 6px',borderRadius:3,fontSize:9,fontWeight:700,background:FUEL_BG[fp.fuel_name]||'#F1F5F9',color:FUEL_CL[fp.fuel_name]||'#475569'}}>{fp.fuel_name}</span>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+              <div className="sim-sec-title">Fuel Particulars</div>
+              <button type="button" onClick={()=>openFuelModal(null)} style={{padding:'6px 12px',fontSize:10,border:'1px solid var(--bd2)',borderRadius:4,background:'var(--bg)',cursor:'pointer',fontWeight:500,whiteSpace:'nowrap',color:'var(--ink2)'}}>+ Add fuel</button>
+            </div>
+            {machines.map((m,mi)=>(
+              <div key={mi} style={{marginBottom:8}}>
+                {(m.fuel_particulars||[]).map((fp,fi)=>(
+                  <div key={`${mi}-${fi}`} style={{marginBottom: "4px", padding: "7px", background: "var(--bg)", borderRadius: "5px"}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+                      <span style={{fontSize:11,fontWeight:600,color:'var(--ink)'}}>{m.machine_name}</span>
+                      <span style={{display:'inline-block',padding:'2px 8px',borderRadius:3,fontSize:9,fontWeight:700,background:FUEL_BG[fp.fuel_name]||'#F1F5F9',color:FUEL_CL[fp.fuel_name]||'#475569'}}>{fp.fuel_name}</span>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                      <div>
+                        <label style={{fontSize:9,fontWeight:600,color:'var(--ink3)',textTransform:'uppercase',display:'block',marginBottom:8}}>Consumption (MT)</label>
+                        <input type="number" className="sim-in" value={fp.consumption_mt||''} onChange={e=>updateFuel(mi,fi,'consumption_mt',e.target.value)} placeholder="0.0" style={{width:'100%',padding:'4px 5px',border:'1px solid var(--bd2)',borderRadius:4,fontSize:11,background:'white',boxSizing:'border-box'}}/>
+                      </div>
+                      <div>
+                        <label style={{fontSize:9,fontWeight:600,color:'var(--ink3)',textTransform:'uppercase',display:'block',marginBottom:8}}>Price (USD/MT)</label>
+                        <input type="number" className="sim-in" value={fp.fuel_price_usd_per_mt||''} onChange={e=>updateFuel(mi,fi,'fuel_price_usd_per_mt',e.target.value)} placeholder="0" style={{width:'100%',padding:'4px 5px',border:'1px solid var(--bd2)',borderRadius:4,fontSize:11,background:'white',boxSizing:'border-box'}}/>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {/* Fuel Modal */}
+          {fuelModalOpen && (
+            <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}} onClick={closeFuelModal}>
+              <div style={{background:'var(--bg)',borderRadius:8,padding:'24px',maxWidth:'400px',width:'90%',boxShadow:'0 4px 12px rgba(0,0,0,0.15)'}} onClick={e=>e.stopPropagation()}>
+                <div style={{fontSize:16,fontWeight:600,marginBottom:16,color:'var(--ink)'}}>Add Fuel Particular</div>
+                
+                <div style={{marginBottom:14}}>
+                  <label style={{fontSize:11,fontWeight:600,color:'var(--ink3)',textTransform:'uppercase',display:'block',marginBottom:8}}>Select Engine/Machine</label>
+                  <select value={fuelModalMachineIdx??''} onChange={e=>setFuelModalMachineIdx(Number(e.target.value))} style={{width:'100%',padding:'8px 10px',border:'1px solid var(--bd2)',borderRadius:4,fontSize:11,background:'var(--bg)',cursor:'pointer',boxSizing:'border-box'}}>
+                    <option value="">Choose a machine</option>
+                    {machines.map((m,i)=><option key={i} value={i}>{m.machine_name}</option>)}
+                  </select>
                 </div>
-                <div className="sim-row">
-                  <div className="sim-f"><label>Consumption (MT)</label><input className="sim-in" type="number" value={fp.consumption_mt} onChange={e=>updateFuel(mi,fi,'consumption_mt',e.target.value)}/></div>
-                  <div className="sim-f"><label>Price (USD/MT)</label><input className="sim-in" type="number" value={fp.fuel_price_usd_per_mt} onChange={e=>updateFuel(mi,fi,'fuel_price_usd_per_mt',e.target.value)}/></div>
+
+                <div style={{marginBottom:14}}>
+                  <label style={{fontSize:11,fontWeight:600,color:'var(--ink3)',textTransform:'uppercase',display:'block',marginBottom:8}}>Fuel Type</label>
+                  <select value={fuelFormData.fuel_name} onChange={e=>setFuelFormData({...fuelFormData,fuel_name:e.target.value})} style={{width:'100%',padding:'8px 10px',border:'1px solid var(--bd2)',borderRadius:4,fontSize:11,background:'var(--bg)',cursor:'pointer',boxSizing:'border-box'}}>
+                    <option value="">Select fuel</option>
+                    <option value="HFO">HFO</option>
+                    <option value="VLSFO">VLSFO</option>
+                    <option value="ULSFO">ULSFO</option>
+                    <option value="LFO">LFO</option>
+                    <option value="MDO">MDO</option>
+                    <option value="LNG">LNG</option>
+                    <option value="LPG">LPG</option>
+                    <option value="METHANOL">METHANOL</option>
+                    <option value="ETHANOL">ETHANOL</option>
+                  </select>
+                </div>
+
+                <div style={{marginBottom:14}}>
+                  <label style={{fontSize:11,fontWeight:600,color:'var(--ink3)',textTransform:'uppercase',display:'block',marginBottom:8}}>Consumption (MT)</label>
+                  <input type="number" value={fuelFormData.consumption_mt} onChange={e=>setFuelFormData({...fuelFormData,consumption_mt:e.target.value})} placeholder="0.0" style={{width:'100%',padding:'8px 10px',border:'1px solid var(--bd2)',borderRadius:4,fontSize:11,background:'var(--bg)',boxSizing:'border-box'}}/>
+                </div>
+
+                <div style={{marginBottom:20}}>
+                  <label style={{fontSize:11,fontWeight:600,color:'var(--ink3)',textTransform:'uppercase',display:'block',marginBottom:8}}>Price (USD/MT)</label>
+                  <input type="number" value={fuelFormData.fuel_price_usd_per_mt} onChange={e=>setFuelFormData({...fuelFormData,fuel_price_usd_per_mt:e.target.value})} placeholder="0" style={{width:'100%',padding:'8px 10px',border:'1px solid var(--bd2)',borderRadius:4,fontSize:11,background:'var(--bg)',boxSizing:'border-box'}}/>
+                </div>
+
+                <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+                  <button type="button" onClick={closeFuelModal} style={{padding:'8px 16px',fontSize:11,border:'1px solid var(--bd2)',borderRadius:4,background:'var(--bg)',cursor:'pointer',fontWeight:500}}>Cancel</button>
+                  <button type="button" onClick={submitFuelModal} style={{padding:'8px 16px',fontSize:11,border:'none',borderRadius:4,background:'var(--green)',color:'white',cursor:'pointer',fontWeight:600}}>Add</button>
                 </div>
               </div>
-            )))}
-          </div>
+            </div>
+          )}
 
           {/* ESD Measures */}
          <div className="sim-sec" style={{flex:1}}>
@@ -1483,10 +1615,11 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
           </div>
         </div>
 
-        {/* Report tabs */}
-        <div className="report-tabs">
+        {/* Report tabs — scrolls horizontally on narrow screens instead of
+            squeezing every tab label down to nothing. */}
+        <div className="report-tabs overflow-x-auto min-w-0">
           {[['fuel','ti-flame','Fuel'],['esd','ti-settings','ESD Results'],['cii','ti-chart-line','CII Strategy'],['fin','ti-coin','Financial'],['eutax','ti-leaf','EU Tax']].map(([key,icon,label])=>(
-            <button key={key} className={`rtab${activeTab===key?' on':''}`} onClick={()=>setActiveTab(key)}>
+            <button key={key} className={`rtab shrink-0 whitespace-nowrap${activeTab===key?' on':''}`} onClick={()=>setActiveTab(key)}>
               <i className={`ti ${icon}`}></i> {label}
             </button>
           ))}
