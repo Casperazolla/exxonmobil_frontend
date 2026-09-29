@@ -1338,6 +1338,7 @@ export default function SimulationWorkspace({ vesselId, vesselName, sessionMode,
         input: reportData?.input || {},
         output: reportData?.output || reportData,
         vesselName: v.vessel_name || vesselName || 'Report',
+        reportId,
         vesselImageB64,
         chartRefs: {
           cash: document.querySelector('canvas[data-chart-id="cash"]'),
