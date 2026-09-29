@@ -307,6 +307,12 @@ const VESSEL_IMAGE_URLS = {
 
    "Ternfjord":
    "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/ternfjord_clean.png", 
+
+   "Vessel A - Container": "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/Container.jpg",
+
+   "Vessel B - Bulk Carrier": "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/Bulk_carrier.jpg",
+
+   "Vessel C - Tanker": "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/Tanker.jpg"
 };
 
 async function fetchImageAsDataURL(url) {
@@ -809,7 +815,7 @@ console.log("PDF vessel image loaded:", !!vesselImageB64);
   tl.forEach(t => { tlDate[t.name] = t.implementation_label; });
   const eRows = esdR.map((e, i) => [
      displayTechName(e.tech_name),
-    [].concat(e.applicability ?? e.applicable_to ?? []).join(', ') || '—',
+    [].concat(e.category ?? e.category ?? []).join(', ') || '—',
     e.installation_req?.replace('_', '-') || '—',
     e.lead_time_months ?? '—',
     tlDate[e.tech_name] || '—',
