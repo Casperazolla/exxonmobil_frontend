@@ -312,7 +312,9 @@ const VESSEL_IMAGE_URLS = {
 
    "Vessel B - Bulk Carrier": "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/Bulk_carrier.jpg",
 
-   "Vessel C - Tanker": "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/Tanker.jpg"
+   "Vessel C - Tanker": "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/Tanker.jpg",
+   "Pennsylvania": "https://azolla-asset.s3.ap-south-1.amazonaws.com/news_charts/pennsylvania.jpg"
+
 };
 
 async function fetchImageAsDataURL(url) {
