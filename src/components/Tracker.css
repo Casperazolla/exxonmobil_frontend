@@ -33,7 +33,7 @@ body {
 }
 
 .tracker-wrapper {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -122,6 +122,7 @@ body {
 /* ── CONTAINER ── */
 .container {
   flex: 1;
+  min-height: 0;
   max-width: none;
   margin: 0 auto;
   padding: 8px;
